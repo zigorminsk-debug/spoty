@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Spoty</string>
+
+    <!-- Вкладки -->
+    <string name="tab_home">Главная</string>
+    <string name="tab_search">Поиск</string>
+    <string name="tab_catalog">Каталог</string>
+    <string name="tab_library">Коллекция</string>
+
+    <!-- Общее -->
+    <string name="see_all">Все</string>
+    <string name="retry">Повторить</string>
+    <string name="play">Слушать</string>
+    <string name="listen">Слушать</string>
+    <string name="shuffle">Вперемешку</string>
+    <string name="save">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    <string name="delete">Удалить</string>
+    <string name="rename">Переименовать</string>
+    <string name="create">Создать</string>
+    <string name="clear">Очистить</string>
+    <string name="show_more">Показать ещё</string>
+    <string name="network_error">Не удалось загрузить. Проверьте подключение к интернету.</string>
+    <string name="nothing_found">Ничего не найдено</string>
+    <string name="settings">Настройки</string>
+    <string name="album">Альбом</string>
+    <string name="playlist">Плейлист</string>
+    <string name="tracks_count">Треков: %1$d</string>
+    <string name="followers_count">Подписчики: %1$s</string>
+    <string name="thousand_suffix">тыс.</string>
+    <string name="million_suffix">млн</string>
+    <string name="hour_short">ч</string>
+    <string name="minute_short">мин</string>
+    <string name="offline_mode">Нет сети — показан сохранённый каталог</string>
+    <string name="license_label">Лицензия: %1$s</string>
+
+    <!-- Главная -->
+    <string name="my_wave">Моя волна</string>
+    <string name="my_wave_hint">Бесконечный поток под ваши вкусы</string>
+    <string name="wave_loading">Подбираем треки…</string>
+    <string name="wave_error">Не удалось запустить волну: нет сети и пустой каталог</string>
+    <string name="for_you">Для вас</string>
+    <string name="trending_now">В тренде</string>
+    <string name="popular_albums">Популярные альбомы</string>
+    <string name="popular_artists">Популярные исполнители</string>
+    <string name="recently_played">Вы недавно слушали</string>
+    <string name="genres_moods">Жанры и настроения</string>
+    <string name="genre_wave">Волна по жанру</string>
+
+    <!-- Поиск -->
+    <string name="search_hint">Треки, альбомы, исполнители</string>
+    <string name="search_empty_hint">Найдите любимую музыку в свободных источниках: Audius, Internet Archive, Jamendo</string>
+    <string name="search_history">История поиска</string>
+    <string name="filter_all">Всё</string>
+    <string name="filter_tracks">Треки</string>
+    <string name="filter_albums">Альбомы</string>
+    <string name="filter_artists">Исполнители</string>
+    <string name="sources_failed">Не ответили: %1$s</string>
+
+    <!-- Каталог -->
+    <string name="catalog_subtitle">Найдено и сохранено: исполнителей — %1$d, альбомов — %2$d, треков — %3$d</string>
+    <string name="catalog_filter_hint">Фильтр по названию</string>
+    <string name="catalog_empty">Каталог пока пуст. Искать и слушать музыку — всё найденное появится здесь и будет доступно офлайн.</string>
+    <string name="sort_new">Новые</string>
+    <string name="sort_alpha">А–Я</string>
+    <string name="sort_popular">Популярные</string>
+
+    <!-- Коллекция -->
+    <string name="lib_playlists">Плейлисты</string>
+    <string name="liked_tracks">Любимые треки</string>
+    <string name="downloads">Загрузки</string>
+    <string name="history">История</string>
+    <string name="playlists_empty">Создайте первый плейлист кнопкой «+»</string>
+    <string name="liked_empty">Отмечайте треки сердечком — они появятся здесь</string>
+    <string name="albums_empty">Сохраняйте альбомы, чтобы вернуться к ним позже</string>
+    <string name="artists_empty">Подписывайтесь на исполнителей, чтобы не пропускать новинки</string>
+    <string name="downloads_empty">Скачивайте треки, чтобы слушать без интернета</string>
+    <string name="history_empty">Здесь появится история прослушиваний</string>
+    <string name="clear_history">Очистить историю</string>
+    <string name="downloading_count">Скачивается: %1$d</string>
+    <string name="playlist_empty">В плейлисте пока пусто</string>
+    <string name="delete_playlist_q">Удалить плейлист?</string>
+
+    <!-- Меню трека -->
+    <string name="play_next">Воспроизвести следующим</string>
+    <string name="add_to_queue">Добавить в очередь</string>
+    <string name="add_like">В любимые</string>
+    <string name="remove_like">Убрать из любимых</string>
+    <string name="dislike_hint">Не нравится (реже в волне)</string>
+    <string name="add_to_playlist">Добавить в плейлист</string>
+    <string name="download">Скачать</string>
+    <string name="remove_download">Удалить загрузку</string>
+    <string name="go_to_artist">К исполнителю</string>
+    <string name="go_to_album">К альбому</string>
+    <string name="wave_by_track">Волна по треку</string>
+    <string name="share">Поделиться</string>
+    <string name="new_playlist_name">Новый плейлист</string>
+    <string name="added_to_playlist">Добавлено в плейлист</string>
+    <string name="download_started">Загрузка началась</string>
+
+    <!-- Исполнитель -->
+    <string name="follow">Подписаться</string>
+    <string name="following">Вы подписаны</string>
+    <string name="popular_tracks">Популярные треки</string>
+    <string name="discography">Дискография</string>
+    <string name="similar_artists">Похожие исполнители</string>
+
+    <!-- Плеер -->
+    <string name="queue">Очередь</string>
+    <string name="queue_empty">Очередь пуста</string>
+    <string name="clear_upcoming">Очистить далее</string>
+    <string name="playback_error">Не удалось воспроизвести</string>
+    <string name="sleep_timer">Таймер сна</string>
+    <string name="sleep_minutes">Через %1$d мин</string>
+    <string name="sleep_after_track">После текущего трека</string>
+    <string name="sleep_cancel">Отключить таймер</string>
+    <string name="playback_speed">Скорость воспроизведения</string>
+    <string name="no_lyrics">Текст не найден</string>
+    <string name="instrumental">Инструментальный трек</string>
+
+    <!-- Настройки -->
+    <string name="sources">Источники музыки</string>
+    <string name="source_audius_desc">Открытая стриминговая сеть, миллионы треков</string>
+    <string name="source_archive_desc">Некоммерческая библиотека: нетлейблы, концерты, винтаж</string>
+    <string name="source_jamendo_desc">Музыка Creative Commons (нужен бесплатный client_id)</string>
+    <string name="jamendo_client_id" translatable="false">Jamendo client_id</string>
+    <string name="jamendo_client_id_hint">Бесплатно на devportal.jamendo.com</string>
+    <string name="open_license_only">Только открытые лицензии</string>
+    <string name="open_license_only_desc">Показывать только треки CC и общественного достояния</string>
+    <string name="appearance">Внешний вид</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="dynamic_color">Динамические цвета</string>
+    <string name="dynamic_color_desc">Палитра из обоев (Android 12+)</string>
+    <string name="downloads_and_cache">Загрузки и кэш</string>
+    <string name="wifi_only">Скачивать только по Wi‑Fi</string>
+    <string name="wifi_only_desc">Экономит мобильный трафик</string>
+    <string name="auto_sync">Автообновление каталога</string>
+    <string name="auto_sync_desc">Пополнять каталог и проверять новинки подписок (раз в 12 часов)</string>
+    <string name="clear_cache">Очистить кэш прослушивания</string>
+    <string name="cache_cleared">Кэш очищен</string>
+    <string name="delete_all_downloads">Удалить все загрузки</string>
+    <string name="downloads_cleared">Загрузки удалены</string>
+    <string name="backup">Резервная копия</string>
+    <string name="export_library">Экспортировать медиатеку (JSON)</string>
+    <string name="import_library">Импортировать медиатеку</string>
+    <string name="backup_exported">Медиатека экспортирована</string>
+    <string name="backup_imported">Медиатека импортирована</string>
+    <string name="backup_failed">Не получилось. Попробуйте ещё раз</string>
+    <string name="about">О приложении</string>
+    <string name="about_text">Spoty %1$s (сборка %2$s). Музыка из свободных источников: Audius, Internet Archive, Jamendo.</string>
+    <string name="about_disclaimer">Spoty не хранит музыку на своих серверах: приложение ищет и воспроизводит записи, опубликованные в открытых источниках их правообладателями. Уважайте условия лицензий треков.</string>
+
+    <!-- Жанры -->
+    <string name="genre_electronic">Электроника</string>
+    <string name="genre_pop">Поп</string>
+    <string name="genre_rock">Рок</string>
+    <string name="genre_hiphop">Хип-хоп</string>
+    <string name="genre_lofi" translatable="false">Lo-Fi</string>
+    <string name="genre_ambient">Эмбиент</string>
+    <string name="genre_jazz">Джаз</string>
+    <string name="genre_classical">Классика</string>
+    <string name="genre_metal">Метал</string>
+    <string name="genre_folk">Фолк</string>
+    <string name="genre_indie">Инди</string>
+    <string name="genre_house">Хаус</string>
+    <string name="genre_techno">Техно</string>
+    <string name="genre_dnb" translatable="false">Drum&amp;Bass</string>
+    <string name="genre_rnb" translatable="false">R&amp;B</string>
+    <string name="genre_reggae">Регги</string>
+    <string name="genre_world">Музыка мира</string>
+    <string name="genre_soundtrack">Саундтреки</string>
+    <string name="genre_acoustic">Акустика</string>
+    <string name="genre_blues">Блюз</string>
+    <string name="genre_funk">Фанк</string>
+    <string name="genre_punk">Панк</string>
+    <string name="genre_country">Кантри</string>
+    <string name="genre_experimental">Экспериментальная</string>
+
+    <!-- Настроения -->
+    <string name="mood_energetic">Бодрое</string>
+    <string name="mood_happy">Весёлое</string>
+    <string name="mood_calm">Спокойное</string>
+    <string name="mood_sad">Грустное</string>
+    <string name="mood_focus">Фокус</string>
+    <string name="mood_workout">Тренировка</string>
+    <string name="mood_sleep">Сон</string>
+    <string name="mood_party">Вечеринка</string>
+
+    <!-- Уведомления -->
+    <string name="channel_playback">Воспроизведение</string>
+    <string name="channel_downloads">Загрузки</string>
+    <string name="channel_releases">Новые релизы</string>
+    <string name="downloading">Скачивание музыки</string>
+    <plurals name="new_releases">
+        <item quantity="one">%d новый релиз у ваших исполнителей</item>
+        <item quantity="few">%d новых релиза у ваших исполнителей</item>
+        <item quantity="many">%d новых релизов у ваших исполнителей</item>
+        <item quantity="other">%d новых релиза у ваших исполнителей</item>
+    </plurals>
+</resources>

@@ -1,0 +1,164 @@
+name: Android CI
+
+# Автосборка после ЛЮБЫХ изменений: пуш в любую ветку, pull request, ручной запуск.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # PR из форка собирается без секретов и без прав записи — пропускаем дубли:
+    # PR из этого же репозитория уже собран событием push.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # Постоянный ключ подписи.
+      # По умолчанию берётся ключ из репозитория (signing/), поэтому сборка работает «из коробки»
+      # и каждая сборка подписана ОДНИМ И ТЕМ ЖЕ ключом. Если в Settings → Secrets заданы
+      # ANDROID_KEYSTORE_BASE64 и ANDROID_KEYSTORE_PASSWORD — используется он (см. signing/README.md).
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KS_TYPE: ${{ secrets.ANDROID_KEYSTORE_TYPE }}
+        run: |
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "SPOTY_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore"
+              echo "SPOTY_KEYSTORE_PASSWORD=$KS_PASS"
+              echo "SPOTY_KEY_ALIAS=${KS_ALIAS:-spoty}"
+              echo "SPOTY_KEY_PASSWORD=${KS_KEY_PASS:-$KS_PASS}"
+              echo "SPOTY_KEYSTORE_TYPE=${KS_TYPE:-pkcs12}"
+            } >> "$GITHUB_ENV"
+            echo "SIGNING_SOURCE=secrets" >> "$GITHUB_ENV"
+            echo "Ключ подписи: из GitHub Secrets"
+          else
+            echo "SIGNING_SOURCE=repository" >> "$GITHUB_ENV"
+            echo "Ключ подписи: постоянный ключ из репозитория (signing/)"
+          fi
+
+      - name: Check keystore is readable
+        run: |
+          STORE_FILE="${SPOTY_KEYSTORE_FILE:-signing/spoty-release.p12}"
+          STORE_PASS="${SPOTY_KEYSTORE_PASSWORD:-$(grep '^storePassword=' signing/signing.properties | cut -d= -f2-)}"
+          STORE_TYPE="${SPOTY_KEYSTORE_TYPE:-pkcs12}"
+          keytool -list -keystore "$STORE_FILE" -storetype "$STORE_TYPE" -storepass "$STORE_PASS" | head -8
+
+      - name: Build release APK and run unit tests
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace assembleRelease testReleaseUnitTest 2>&1 | tee build.log
+
+      - name: Annotate build errors
+        if: failure()
+        run: python3 scripts/ci_annotate.py build.log "Gradle build failed"
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: Verify APK signature
+        id: sign
+        run: |
+          APK_SRC=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          VERSION_NAME=$(grep -m1 -oP 'versionName="\K[^"]+' app/build/outputs/apk/release/output-metadata.json || true)
+          [ -n "$VERSION_NAME" ] || VERSION_NAME=$(python3 -c "import json;print(json.load(open('app/build/outputs/apk/release/output-metadata.json'))['elements'][0]['versionName'])")
+          SHORT_SHA="${GITHUB_SHA::7}"
+          APK="Spoty-${VERSION_NAME}-${SHORT_SHA}.apk"
+          cp "$APK_SRC" "$APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee sign.txt
+          ACTUAL=$(grep -m1 'certificate SHA-256 digest' sign.txt | awk '{print $NF}' | tr 'A-F' 'a-f')
+          EXPECTED=$(tr -d ':\n ' < signing/CERT_SHA256 | tr 'A-F' 'a-f')
+          echo "Отпечаток сертификата в APK:   $ACTUAL"
+          echo "Ожидаемый отпечаток (signing/): $EXPECTED"
+          if [ "$SIGNING_SOURCE" = "repository" ] && [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error title=Ключ подписи изменился::Подпись APK не совпадает с signing/CERT_SHA256. Обновление поверх установленной версии будет невозможно."
+            exit 1
+          fi
+          sha256sum "$APK" > "$APK.sha256"
+          SIZE=$(du -h "$APK" | cut -f1)
+          {
+            echo "apk=$APK"
+            echo "version=$VERSION_NAME"
+            echo "cert=$ACTUAL"
+            echo "size=$SIZE"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### ✅ Spoty $VERSION_NAME собран и подписан"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| APK | \`$APK\` ($SIZE) |"
+            echo "| Коммит | \`$SHORT_SHA\` |"
+            echo "| Ключ подписи | $SIGNING_SOURCE |"
+            echo "| SHA-256 сертификата | \`$ACTUAL\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Spoty $VERSION_NAME::$APK ($SIZE), cert SHA-256 $ACTUAL"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Spoty-apk
+          path: |
+            ${{ steps.sign.outputs.apk }}
+            ${{ steps.sign.outputs.apk }}.sha256
+          retention-days: 30
+          if-no-files-found: error
+
+      # Публикация: из основной ветки — обычный релиз, из остальных — плавающий pre-release
+      # «dev-<ветка>», чтобы свежую сборку можно было скачать прямо с телефона со страницы Releases.
+      - name: Publish GitHub release
+        if: github.event_name != 'pull_request'
+        env:
+          APK: ${{ steps.sign.outputs.apk }}
+          VERSION: ${{ steps.sign.outputs.version }}
+          CERT: ${{ steps.sign.outputs.cert }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          BRANCH="$GITHUB_REF_NAME"
+          NOTES="Автоматическая сборка из ветки \`$BRANCH\`, коммит \`${GITHUB_SHA::7}\`.
+
+          Подписано постоянным ключом (SHA-256 сертификата: \`$CERT\`) — устанавливается поверх предыдущих сборок без удаления данных.
+
+          Подробности: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          if [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then
+            TAG="v$VERSION"
+            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+            gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --title "Spoty $VERSION" --notes "$NOTES" --latest
+          else
+            SLUG=$(echo "$BRANCH" | sed 's#[^A-Za-z0-9._-]#-#g')
+            TAG="dev-$SLUG"
+            gh release delete "$TAG" --cleanup-tag --yes 2>/dev/null || true
+            gh release create "$TAG" "$APK" "$APK.sha256" --target "$GITHUB_SHA" --prerelease --title "Spoty dev ($BRANCH) — $VERSION" --notes "$NOTES"
+          fi
+          echo "Релиз: $TAG"
