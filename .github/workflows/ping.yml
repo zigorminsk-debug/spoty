@@ -1,0 +1,15 @@
+name: ping
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "runner ok"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls $ANDROID_HOME/platforms $ANDROID_HOME/build-tools || true
+          java -version 2>&1 || true
+          ls /usr/lib/jvm || true
+          nproc; free -g | head -2; df -h / | tail -1
