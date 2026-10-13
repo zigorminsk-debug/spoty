@@ -62,6 +62,11 @@ func main() {
 	debugFlag := flag.Bool("debug", false, "запустить с консолью и подробным логом (для диагностики)")
 	flag.Parse()
 
+	if *versionFlag {
+		fmt.Println(appTitle, version)
+		return
+	}
+
 	// Паника в GUI-приложении без консоли иначе незаметна — показываем её.
 	defer func() {
 		if r := recover(); r != nil {
