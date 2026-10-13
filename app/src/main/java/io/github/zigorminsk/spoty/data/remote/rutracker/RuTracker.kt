@@ -43,6 +43,9 @@ fun normalizeMirrorUrl(raw: String): String {
 internal const val BROWSER_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
 
+internal const val HTML_ACCEPT = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+internal const val RU_LANG = "ru-RU,ru;q=0.9,en-US;q=0.7,en;q=0.5"
+
 /** Раздача из результатов поиска трекера. */
 data class RuTrackerTopic(
     val id: Long,
@@ -203,23 +206,39 @@ class RuTrackerClient(
      * @throws RuTrackerError.Captcha если трекер показал капчу;
      * @throws RuTrackerError.BadCredentials если логин/пароль не подошли.
      */
+    /** Cookie из ответа без атрибутов: «bb_session=abc; path=/» → «bb_session=abc». */
+    private fun Response.readSetCookies(): List<String> =
+        headers("Set-Cookie")
+            .map { it.substringBefore(';').trim() }
+            .filter { c -> '=' in c && !c.endsWith("=") && !c.endsWith("=deleted") }
+
     suspend fun login(login: String, password: String) {
         val url = forumUrl("login.php")
+        // Прогрев: сперва открываем страницу входа как браузер, чтобы собрать cookie
+        // защиты трекера. POST «с пустого места» без них нередко получает 403,
+        // хотя в браузере тот же вход работает.
+        val warmCookies = executeSafe(
+            web,
+            Request.Builder().url(url)
+                .header("Accept", HTML_ACCEPT)
+                .header("Accept-Language", RU_LANG)
+                .build(),
+        ).use { it.readSetCookies() }
         val request = Request.Builder()
             .url(url)
             .header("Referer", url)
             .header("Origin", base())
-            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            .header("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.7,en;q=0.5")
+            .header("Accept", HTML_ACCEPT)
+            .header("Accept-Language", RU_LANG)
+            .header("Cookie", warmCookies.joinToString("; "))
             .post(formBody("login_username" to login, "login_password" to password, "login" to "вход"))
             .build()
         executeSafe(noRedirect, request).use { r ->
-            val cookies = r.headers("Set-Cookie")
-                .map { it.substringBefore(';').trim() }
-                .filter { c -> '=' in c && !c.endsWith("=") && !c.endsWith("=deleted") }
+            val cookies = r.readSetCookies()
             val hasSession = cookies.any { it.startsWith("bb_session=") }
             if (r.code in 300..399 && hasSession) {
-                val cookie = cookies.joinToString("; ")
+                // Cookie защиты + сессия: пригодятся и поиску, и торрент-движку.
+                val cookie = (warmCookies + cookies).distinct().joinToString("; ")
                 cookieCache = cookie
                 settings.setRutrackerAuth(login, password)
                 settings.setRutrackerCookie(cookie)
@@ -262,6 +281,8 @@ class RuTrackerClient(
             val url = forumUrl("tracker.php?nm=${encode(query)}&o=10&s=2")
             val request = Request.Builder().url(url).header("Cookie", cookie).build()
             val html = executeSafe(web, request).use { r ->
+                // Защита от ботов на выдаче: честно говорим «заблокировано», а не «ничего не найдено».
+                if (r.code == 403 || r.code == 429 || r.code == 503) throw RuTrackerError.Blocked(r.code)
                 if (isLoginRedirect(r)) null else r.body?.string().orEmpty()
             }
             if (html != null) return RuTrackerParser.parseSearch(html)
@@ -280,6 +301,7 @@ class RuTrackerClient(
                 .header("Referer", forumUrl("viewtopic.php?t=$topicId"))
                 .build()
             val bytes = executeSafe(web, request).use { r ->
+                if (r.code == 403 || r.code == 429 || r.code == 503) throw RuTrackerError.Blocked(r.code)
                 val body = r.body?.bytes() ?: ByteArray(0)
                 // .torrent — это bencode-словарь, он всегда начинается с байта «d».
                 val isTorrent = r.isSuccessful && body.isNotEmpty() && body[0] == 'd'.code.toByte()

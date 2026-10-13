@@ -46,6 +46,7 @@ import io.github.zigorminsk.spoty.data.model.SourceId
 import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerError
 import io.github.zigorminsk.spoty.data.settings.ThemeMode
 import io.github.zigorminsk.spoty.ui.LocalAppContainer
+import io.github.zigorminsk.spoty.ui.rutracker.RuTrackerWebLoginDialog
 import kotlinx.coroutines.launch
 
 @Composable
@@ -201,11 +202,18 @@ fun SettingsScreen(navController: NavHostController, snackbar: SnackbarHostState
             var rtPassword by rememberSaveable { mutableStateOf("") }
             var rtBusy by remember { mutableStateOf(false) }
             var rtCookie by rememberSaveable { mutableStateOf("") }
+            var showWebLogin by remember { mutableStateOf(false) }
             val loginOkText = stringResource(R.string.rutracker_login_ok)
             val loginFailedText = stringResource(R.string.rutracker_login_failed)
             val captchaText = stringResource(R.string.rutracker_captcha)
             val unreachableText = stringResource(R.string.rutracker_unreachable)
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                // Главный способ входа: WebView — это настоящий браузерный движок,
+                // JavaScript-защита трекера пропускает его как обычный браузер.
+                Button(
+                    onClick = { showWebLogin = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.rutracker_web_login)) }
                 OutlinedTextField(
                     value = rtLogin,
                     onValueChange = { rtLogin = it },
@@ -276,6 +284,19 @@ fun SettingsScreen(navController: NavHostController, snackbar: SnackbarHostState
                     },
                     modifier = Modifier.padding(top = 2.dp),
                 ) { Text(stringResource(R.string.rutracker_cookie_save)) }
+            }
+            if (showWebLogin) {
+                RuTrackerWebLoginDialog(
+                    mirror = container.settings.value.rutrackerMirror,
+                    onDismiss = { showWebLogin = false },
+                    onSessionCookie = { cookie ->
+                        showWebLogin = false
+                        scope.launch {
+                            container.settings.setRutrackerCookie(cookie)
+                            snackbar.showSnackbar(context.getString(R.string.rutracker_login_ok))
+                        }
+                    },
+                )
             }
         } else {
             Row(
