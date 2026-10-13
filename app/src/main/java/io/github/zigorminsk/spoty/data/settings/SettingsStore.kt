@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.zigorminsk.spoty.BuildConfig
 import io.github.zigorminsk.spoty.data.model.SourceId
+import io.github.zigorminsk.spoty.data.remote.rutracker.normalizeMirrorUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +32,15 @@ data class AppSettings(
     val autoSync: Boolean = true,
     val cacheMb: Int = 512,
     val lastSyncAt: Long = 0L,
-)
+    val rutrackerMirror: String = "https://rutracker.org",
+    val rutrackerLogin: String = "",
+    val rutrackerPassword: String = "",
+    val rutrackerCookie: String = "",
+) {
+    /** Аккаунт RuTracker подключён (есть сессия или сохранённые учётные данные). */
+    val rutrackerConnected: Boolean
+        get() = rutrackerCookie.isNotBlank() || (rutrackerLogin.isNotBlank() && rutrackerPassword.isNotBlank())
+}
 
 /** Снимок состояния плеера для возобновления после перезапуска. */
 data class PlaybackSnapshot(
@@ -54,6 +63,10 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
         val autoSync = booleanPreferencesKey("auto_sync")
         val cacheMb = intPreferencesKey("cache_mb")
         val lastSync = longPreferencesKey("last_sync")
+        val rtMirror = stringPreferencesKey("rt_mirror")
+        val rtLogin = stringPreferencesKey("rt_login")
+        val rtPassword = stringPreferencesKey("rt_password")
+        val rtCookie = stringPreferencesKey("rt_cookie")
         val pbIndex = intPreferencesKey("pb_index")
         val pbPosition = longPreferencesKey("pb_position")
         val pbShuffle = booleanPreferencesKey("pb_shuffle")
@@ -75,6 +88,10 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
             autoSync = p[Keys.autoSync] ?: defaults.autoSync,
             cacheMb = p[Keys.cacheMb] ?: defaults.cacheMb,
             lastSyncAt = p[Keys.lastSync] ?: defaults.lastSyncAt,
+            rutrackerMirror = p[Keys.rtMirror] ?: defaults.rutrackerMirror,
+            rutrackerLogin = p[Keys.rtLogin] ?: defaults.rutrackerLogin,
+            rutrackerPassword = p[Keys.rtPassword] ?: defaults.rutrackerPassword,
+            rutrackerCookie = p[Keys.rtCookie] ?: defaults.rutrackerCookie,
         )
     }.stateIn(scope, SharingStarted.Eagerly, AppSettings())
 
@@ -95,6 +112,24 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setAutoSync(enabled: Boolean) = store.edit { it[Keys.autoSync] = enabled }.let { }
     suspend fun setCacheMb(value: Int) = store.edit { it[Keys.cacheMb] = value }.let { }
     suspend fun setLastSync(value: Long) = store.edit { it[Keys.lastSync] = value }.let { }
+
+    suspend fun setRutrackerMirror(value: String) =
+        store.edit {
+            it[Keys.rtMirror] = normalizeMirrorUrl(value).ifBlank { AppSettings().rutrackerMirror }
+        }.let { }
+
+    suspend fun setRutrackerAuth(login: String, password: String) = store.edit { p ->
+        p[Keys.rtLogin] = login.trim()
+        p[Keys.rtPassword] = password
+    }.let { }
+
+    suspend fun setRutrackerCookie(value: String) = store.edit { it[Keys.rtCookie] = value }.let { }
+
+    suspend fun clearRutracker() = store.edit { p ->
+        p.remove(Keys.rtLogin)
+        p.remove(Keys.rtPassword)
+        p.remove(Keys.rtCookie)
+    }.let { }
 
     suspend fun savePlayback(snapshot: PlaybackSnapshot) {
         store.edit { p ->

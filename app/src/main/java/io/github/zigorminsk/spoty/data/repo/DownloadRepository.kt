@@ -27,7 +27,9 @@ class DownloadRepository(
     private val dao = db.library()
     private val workManager get() = WorkManager.getInstance(context)
 
-    suspend fun enqueue(tracks: List<Track>) = withContext(Dispatchers.IO) {
+    suspend fun enqueue(allTracks: List<Track>) = withContext(Dispatchers.IO) {
+        // torrent:// скачивается самим торрент-движком при проигрывании; HTTP-загрузчику он не по зубам.
+        val tracks = allTracks.filterNot { it.streamUrl.startsWith("torrent://") }
         if (tracks.isEmpty()) return@withContext
         store.saveTracks(tracks)
         val network = if (settings.value.wifiOnlyDownloads) NetworkType.UNMETERED else NetworkType.CONNECTED

@@ -33,6 +33,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import io.github.zigorminsk.spoty.R
 import io.github.zigorminsk.spoty.data.model.Track
 import io.github.zigorminsk.spoty.data.repo.WaveSeed
@@ -51,6 +52,10 @@ import io.github.zigorminsk.spoty.ui.library.LibraryScreen
 import io.github.zigorminsk.spoty.ui.player.PlayerScreen
 import io.github.zigorminsk.spoty.ui.player.QueueScreen
 import io.github.zigorminsk.spoty.ui.playlist.PlaylistScreen
+import io.github.zigorminsk.spoty.ui.rutracker.RuTrackerSearchScreen
+import io.github.zigorminsk.spoty.ui.rutracker.RuTrackerTopicScreen
+import io.github.zigorminsk.spoty.ui.ztorrents.ZTorrentsSearchScreen
+import io.github.zigorminsk.spoty.ui.ztorrents.ZTorrentsTopicScreen
 import io.github.zigorminsk.spoty.ui.search.SearchScreen
 import io.github.zigorminsk.spoty.ui.settings.SettingsScreen
 import kotlinx.coroutines.flow.first
@@ -197,6 +202,40 @@ fun SpotyRoot() {
             }
             composable(Routes.GENRE_PATTERN) { entry ->
                 GenreScreen(entry.arguments?.getString("id").orEmpty(), navController, menu)
+            }
+            composable(
+                Routes.RUTRACKER_PATTERN,
+                arguments = listOf(navArgument("q") { defaultValue = "" }),
+            ) { entry ->
+                RuTrackerSearchScreen(entry.arguments?.getString("q").orEmpty(), navController)
+            }
+            composable(
+                Routes.RUTRACKER_TOPIC_PATTERN,
+                arguments = listOf(navArgument("title") { defaultValue = "" }),
+            ) { entry ->
+                RuTrackerTopicScreen(
+                    topicId = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L,
+                    topicTitle = entry.arguments?.getString("title").orEmpty(),
+                    navController = navController,
+                    menu = menu,
+                )
+            }
+            composable(
+                Routes.ZTORRENTS_PATTERN,
+                arguments = listOf(navArgument("q") { defaultValue = "" }),
+            ) { entry ->
+                ZTorrentsSearchScreen(entry.arguments?.getString("q").orEmpty(), navController)
+            }
+            composable(
+                Routes.ZTORRENTS_TOPIC_PATTERN,
+                arguments = listOf(navArgument("title") { defaultValue = "" }),
+            ) { entry ->
+                ZTorrentsTopicScreen(
+                    releaseId = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L,
+                    releaseTitle = entry.arguments?.getString("title").orEmpty(),
+                    navController = navController,
+                    menu = menu,
+                )
             }
         }
     }

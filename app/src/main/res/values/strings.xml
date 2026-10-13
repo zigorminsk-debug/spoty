@@ -189,6 +189,52 @@
     <string name="mood_sleep">Сон</string>
     <string name="mood_party">Вечеринка</string>
 
+    <!-- RuTracker -->
+    <string name="rutracker">RuTracker</string>
+    <string name="rutracker_search_on">Искать на RuTracker</string>
+    <string name="rutracker_entry_desc">Альбомы и дискографии из раздач трекера</string>
+    <string name="rutracker_search_hint">Поиск раздач…</string>
+    <string name="rutracker_hint">Введите запрос — найдём музыкальные раздачи, отсортированные по числу сидов</string>
+    <string name="rutracker_need_login">Чтобы искать и слушать музыку с RuTracker, войдите в аккаунт в настройках</string>
+    <string name="rutracker_open_settings">Открыть настройки</string>
+    <string name="rutracker_settings_desc">Поиск и проигрывание музыки из раздач трекера. Нужен аккаунт RuTracker; логин и пароль хранятся только на устройстве.</string>
+    <string name="rutracker_mirror">Адрес зеркала</string>
+    <string name="rutracker_mirror_hint">Можно без схемы — https:// подставится сам. Например, rutracker.org или rutracker.net</string>
+    <string name="rutracker_unreachable">Не удалось открыть зеркало: проверьте адрес и подключение к сети</string>
+    <string name="rutracker_blocked">Трекер отклонил запрос (защита от ботов, HTTP %1$d). Попробуйте позже или подключитесь cookie из браузера</string>
+    <string name="rutracker_cookie_hint">Если трекер не пускает приложение (защита от ботов, капча), войдите в аккаунт в браузере и вставьте сюда cookie — поиск и плеер будут работать от неё.</string>
+    <string name="rutracker_cookie">Cookie из браузера (bb_session=…)</string>
+    <string name="rutracker_cookie_save">Подключить cookie</string>
+    <string name="rutracker_cookie_saved">Cookie сохранена</string>
+    <string name="rutracker_cookie_invalid">В строке нет bb_session=… — скопируйте cookie целиком</string>
+    <string name="rutracker_cookie_session">Подключено: cookie из браузера</string>
+    <string name="rutracker_web_login">Войти через встроенный браузер</string>
+    <string name="rutracker_web_login_title">Вход в RuTracker</string>
+    <string name="rutracker_web_login_hint">Откроется настоящая страница входа трекера — её защита от ботов пропускает как обычный браузер. После входа сессия сохранится в приложении, и окно закроется само.</string>
+    <string name="rutracker_search_blocked">Трекер отклонил запрос (защита от ботов). Войдите через встроенный браузер в настройках и повторите поиск</string>
+    <string name="torrent_no_seeds">В торренте сейчас нет сидов: воспроизведение начнётся, когда появится раздающий</string>
+
+    <!-- Z-Torrents -->
+    <string name="ztorrents">Z-Torrents</string>
+    <string name="ztorrents_search_on">Искать на Z-Torrents</string>
+    <string name="ztorrents_entry_desc">Сборники и альбомы с открытыми торрентами — аккаунт не нужен</string>
+    <string name="ztorrents_search_hint">Поиск релизов…</string>
+    <string name="ztorrents_hint">Введите запрос — найдём релизы, торренты которых открыты для гостей</string>
+    <string name="rutracker_login">Логин</string>
+    <string name="rutracker_password">Пароль</string>
+    <string name="rutracker_sign_in">Войти</string>
+    <string name="rutracker_sign_out">Выйти</string>
+    <string name="rutracker_connected">Подключено: %1$s</string>
+    <string name="rutracker_login_ok">Вход выполнен</string>
+    <string name="rutracker_login_failed">Не удалось войти: проверьте логин, пароль и адрес зеркала</string>
+    <string name="rutracker_captcha">RuTracker просит капчу. Войдите на сайт в браузере, подождите немного и попробуйте снова.</string>
+    <string name="rutracker_logged_out">Аккаунт RuTracker отключён</string>
+    <string name="rutracker_no_audio">В раздаче нет аудиофайлов</string>
+    <string name="rutracker_play_all">Слушать всё</string>
+    <string name="rutracker_progress">Загружено %1$s · %2$s/с · сиды: %3$d</string>
+    <string name="rutracker_clear_data">Очистить данные торрентов</string>
+    <string name="rutracker_data_cleared">Данные торрентов удалены</string>
+
     <!-- Уведомления -->
     <string name="channel_playback">Воспроизведение</string>
     <string name="channel_downloads">Загрузки</string>

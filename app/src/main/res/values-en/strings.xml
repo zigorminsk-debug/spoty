@@ -171,6 +171,50 @@
     <string name="mood_sleep">Sleep</string>
     <string name="mood_party">Party</string>
 
+    <string name="rutracker">RuTracker</string>
+    <string name="rutracker_search_on">Search on RuTracker</string>
+    <string name="rutracker_entry_desc">Albums and discographies from tracker releases</string>
+    <string name="rutracker_search_hint">Search releases…</string>
+    <string name="rutracker_hint">Type a query — we will find music releases sorted by seeders</string>
+    <string name="rutracker_need_login">Sign in to your RuTracker account in Settings to search and play music from the tracker</string>
+    <string name="rutracker_open_settings">Open settings</string>
+    <string name="rutracker_settings_desc">Search and play music from tracker releases. A RuTracker account is required; credentials are stored on this device only.</string>
+    <string name="rutracker_mirror">Mirror address</string>
+    <string name="rutracker_mirror_hint">Scheme is optional — https:// is added automatically. For example, rutracker.org or rutracker.net</string>
+    <string name="rutracker_unreachable">Can\'t open the mirror: check the address and network connection</string>
+    <string name="rutracker_blocked">The tracker rejected the request (bot protection, HTTP %1$d). Try again later or connect with a browser cookie</string>
+    <string name="rutracker_cookie_hint">If the tracker blocks the app (bot protection, captcha), sign in in a browser and paste the cookie here — search and playback will use it.</string>
+    <string name="rutracker_cookie">Cookie from browser (bb_session=…)</string>
+    <string name="rutracker_cookie_save">Connect cookie</string>
+    <string name="rutracker_cookie_saved">Cookie saved</string>
+    <string name="rutracker_cookie_invalid">No bb_session=… in the string — copy the whole cookie</string>
+    <string name="rutracker_cookie_session">Connected: browser cookie</string>
+    <string name="rutracker_web_login">Sign in via built-in browser</string>
+    <string name="rutracker_web_login_title">Sign in to RuTracker</string>
+    <string name="rutracker_web_login_hint">The real tracker sign-in page opens — its bot protection treats it as a normal browser. After signing in, the session is saved in the app and the window closes on its own.</string>
+    <string name="rutracker_search_blocked">The tracker rejected the request (bot protection). Sign in via the built-in browser in Settings and retry</string>
+    <string name="torrent_no_seeds">No seeds right now: playback will start once a seeder appears</string>
+
+    <string name="ztorrents">Z-Torrents</string>
+    <string name="ztorrents_search_on">Search on Z-Torrents</string>
+    <string name="ztorrents_entry_desc">Compilations and albums with open torrents — no account needed</string>
+    <string name="ztorrents_search_hint">Search releases…</string>
+    <string name="ztorrents_hint">Type a query — we will find releases whose torrents are open to guests</string>
+    <string name="rutracker_login">Username</string>
+    <string name="rutracker_password">Password</string>
+    <string name="rutracker_sign_in">Sign in</string>
+    <string name="rutracker_sign_out">Sign out</string>
+    <string name="rutracker_connected">Connected: %1$s</string>
+    <string name="rutracker_login_ok">Signed in</string>
+    <string name="rutracker_login_failed">Sign-in failed: check username, password and mirror address</string>
+    <string name="rutracker_captcha">RuTracker asks for a captcha. Sign in on the website in a browser, wait a bit and try again.</string>
+    <string name="rutracker_logged_out">RuTracker account disconnected</string>
+    <string name="rutracker_no_audio">No audio files in this release</string>
+    <string name="rutracker_play_all">Play all</string>
+    <string name="rutracker_progress">Downloaded %1$s · %2$s/s · seeds: %3$d</string>
+    <string name="rutracker_clear_data">Clear torrent data</string>
+    <string name="rutracker_data_cleared">Torrent data removed</string>
+
     <string name="channel_playback">Playback</string>
     <string name="channel_downloads">Downloads</string>
     <string name="channel_releases">New releases</string>
