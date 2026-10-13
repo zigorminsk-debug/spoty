@@ -189,6 +189,32 @@
     <string name="mood_sleep">Сон</string>
     <string name="mood_party">Вечеринка</string>
 
+    <!-- RuTracker -->
+    <string name="rutracker">RuTracker</string>
+    <string name="rutracker_search_on">Искать на RuTracker</string>
+    <string name="rutracker_entry_desc">Альбомы и дискографии из раздач трекера</string>
+    <string name="rutracker_search_hint">Поиск раздач…</string>
+    <string name="rutracker_hint">Введите запрос — найдём музыкальные раздачи, отсортированные по числу сидов</string>
+    <string name="rutracker_need_login">Чтобы искать и слушать музыку с RuTracker, войдите в аккаунт в настройках</string>
+    <string name="rutracker_open_settings">Открыть настройки</string>
+    <string name="rutracker_settings_desc">Поиск и проигрывание музыки из раздач трекера. Нужен аккаунт RuTracker; логин и пароль хранятся только на устройстве.</string>
+    <string name="rutracker_mirror">Адрес зеркала</string>
+    <string name="rutracker_mirror_hint">Например, https://rutracker.org или https://rutracker.net</string>
+    <string name="rutracker_login">Логин</string>
+    <string name="rutracker_password">Пароль</string>
+    <string name="rutracker_sign_in">Войти</string>
+    <string name="rutracker_sign_out">Выйти</string>
+    <string name="rutracker_connected">Подключено: %1$s</string>
+    <string name="rutracker_login_ok">Вход выполнен</string>
+    <string name="rutracker_login_failed">Не удалось войти: проверьте логин, пароль и адрес зеркала</string>
+    <string name="rutracker_captcha">RuTracker просит капчу. Войдите на сайт в браузере, подождите немного и попробуйте снова.</string>
+    <string name="rutracker_logged_out">Аккаунт RuTracker отключён</string>
+    <string name="rutracker_no_audio">В раздаче нет аудиофайлов</string>
+    <string name="rutracker_play_all">Слушать всё</string>
+    <string name="rutracker_progress">Загружено %1$s · %2$s/с · сиды: %3$d</string>
+    <string name="rutracker_clear_data">Очистить данные торрентов</string>
+    <string name="rutracker_data_cleared">Данные торрентов удалены</string>
+
     <!-- Уведомления -->
     <string name="channel_playback">Воспроизведение</string>
     <string name="channel_downloads">Загрузки</string>

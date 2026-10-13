@@ -2,6 +2,16 @@ package io.github.zigorminsk.spoty.util
 
 import java.util.Locale
 
+/** Размер в байтах → «12.3 MB». */
+fun formatBytes(bytes: Long): String {
+    if (bytes < 1024L) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024.0) return String.format(Locale.US, "%.0f KB", kb)
+    val mb = kb / 1024.0
+    if (mb < 1024.0) return String.format(Locale.US, "%.1f MB", mb)
+    return String.format(Locale.US, "%.2f GB", mb / 1024.0)
+}
+
 /** 3:05 или 1:02:03. */
 fun formatDuration(ms: Long): String {
     if (ms <= 0L) return "0:00"

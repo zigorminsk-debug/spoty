@@ -22,6 +22,8 @@ import io.github.zigorminsk.spoty.data.remote.Http
 import io.github.zigorminsk.spoty.data.remote.JamendoSource
 import io.github.zigorminsk.spoty.data.remote.LrcLibClient
 import io.github.zigorminsk.spoty.data.remote.MusicSource
+import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerClient
+import io.github.zigorminsk.spoty.data.torrent.TorrentEngine
 import io.github.zigorminsk.spoty.data.repo.BackupRepository
 import io.github.zigorminsk.spoty.data.repo.CatalogRepository
 import io.github.zigorminsk.spoty.data.repo.CatalogStore
@@ -30,6 +32,8 @@ import io.github.zigorminsk.spoty.data.repo.LibraryRepository
 import io.github.zigorminsk.spoty.data.repo.RecommendationRepository
 import io.github.zigorminsk.spoty.data.settings.SettingsStore
 import io.github.zigorminsk.spoty.player.PlayerController
+import io.github.zigorminsk.spoty.player.RoutingDataSource
+import io.github.zigorminsk.spoty.player.TorrentDataSource
 import io.github.zigorminsk.spoty.player.WaveController
 import io.github.zigorminsk.spoty.work.CatalogSyncWorker
 import java.io.File
@@ -83,6 +87,14 @@ class AppContainer(val app: Application) {
     val lyrics = LrcLibClient(http)
     val backup = BackupRepository(library, catalogStore)
 
+    /** RuTracker: вход по логину/паролю, поиск раздач, скачивание .torrent. */
+    val rutracker = RuTrackerClient(apiClient, settings)
+
+    /** Встроенный BitTorrent-движок: проигрывание музыки прямо из раздач. */
+    val torrentEngine = TorrentEngine(app).also { engine ->
+        engine.torrentFetcher = { topicId -> rutracker.torrentBytes(topicId) }
+    }
+
     val player = PlayerController(app, library)
     val wave = WaveController(player, recommendations, appScope)
 
@@ -98,10 +110,14 @@ class AppContainer(val app: Application) {
 
     fun mediaDataSourceFactory(): DataSource.Factory {
         val upstream = DefaultDataSource.Factory(app, OkHttpDataSource.Factory(mediaClient).setUserAgent(userAgent))
-        return CacheDataSource.Factory()
+        val cached = CacheDataSource.Factory()
             .setCache(mediaCache)
             .setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        // torrent:// играет напрямую из каталога раздачи (кэш не нужен — данные уже на диске).
+        return DataSource.Factory {
+            RoutingDataSource(cached.createDataSource(), TorrentDataSource(torrentEngine))
+        }
     }
 
     fun clearMediaCache() {
