@@ -1,5 +1,6 @@
 package io.github.zigorminsk.spoty.ui.ztorrents
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import io.github.zigorminsk.spoty.data.model.Track
 import io.github.zigorminsk.spoty.data.remote.rutracker.torrentStreamUrl
 import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTORRENTS_BASE
 import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTORRENTS_SOURCE
+import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTORRENTS_TAG
 import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTorrentsParser
 import io.github.zigorminsk.spoty.data.torrent.TorrentFileEntry
 import io.github.zigorminsk.spoty.data.torrent.TorrentStats
@@ -115,6 +117,8 @@ class ZTorrentsTopicViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // На экране одна общая «Не удалось загрузить» — причина только в логе.
+                Log.w(ZTORRENTS_TAG, "release $releaseId failed to load", e)
                 _state.update { it.copy(loading = false, error = true) }
             }
         }

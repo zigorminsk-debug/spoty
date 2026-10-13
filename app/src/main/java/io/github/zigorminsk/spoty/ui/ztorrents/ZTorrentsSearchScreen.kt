@@ -1,5 +1,6 @@
 package io.github.zigorminsk.spoty.ui.ztorrents
 
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,6 +32,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import io.github.zigorminsk.spoty.R
 import io.github.zigorminsk.spoty.data.remote.ztorrents.ZRelease
+import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTORRENTS_TAG
 import io.github.zigorminsk.spoty.di.AppContainer
 import io.github.zigorminsk.spoty.ui.LocalAppContainer
 import io.github.zigorminsk.spoty.ui.components.EmptyBox
@@ -77,6 +79,8 @@ class ZTorrentsSearchViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // На экране одна общая «Не удалось загрузить» — причина только в логе.
+                Log.w(ZTORRENTS_TAG, "search failed: $query", e)
                 _state.update { it.copy(loading = false, error = true) }
             }
         }

@@ -1,6 +1,8 @@
 package io.github.zigorminsk.spoty.data.remote.ztorrents
 
 import io.github.zigorminsk.spoty.data.remote.rutracker.BROWSER_USER_AGENT
+import io.github.zigorminsk.spoty.data.remote.rutracker.HTML_ACCEPT
+import io.github.zigorminsk.spoty.data.remote.rutracker.RU_LANG
 import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerParser
 import java.io.IOException
 import java.net.URLEncoder
@@ -9,6 +11,9 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -17,6 +22,34 @@ import org.jsoup.Jsoup
 
 /** Ключ источника в идентификаторах треков: «ztorrents:<релиз>:<file>». */
 const val ZTORRENTS_SOURCE = "ztorrents"
+
+/** Тег логов Z-Torrents: по нему в logcat видна настоящая причина «не удалось загрузить». */
+const val ZTORRENTS_TAG = "SpotyZTorrents"
+
+/**
+ * Cookie-сессия в памяти процесса, как у браузера: DLE отдаёт гостю cookie
+ * (PHPSESSID и др.) и на следующих запросах ждёт их обратно — без них часть
+ * установок DLE отвечает ошибкой или страницей-пустышкой. Одна сессия на клиент,
+ * живёт, пока живо приложение; между запросами поиска, релиза и .torrent общая.
+ */
+class InMemoryCookieJar : CookieJar {
+    private val store = mutableMapOf<String, MutableMap<String, Cookie>>()
+
+    @Synchronized
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        val byName = store.getOrPut(url.host) { mutableMapOf() }
+        val now = System.currentTimeMillis()
+        for (cookie in cookies) {
+            if (cookie.expiresAt <= now) byName.remove(cookie.name) else byName[cookie.name] = cookie
+        }
+    }
+
+    @Synchronized
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val now = System.currentTimeMillis()
+        return store[url.host]?.values?.filter { it.expiresAt > now && it.matches(url) }.orEmpty()
+    }
+}
 
 /** Приводит ссылку со страницы релиза к абсолютной: OkHttp не умеет относительные URL. */
 fun resolveZtorrentsUrl(href: String): String = when {
@@ -126,14 +159,26 @@ object ZTorrentsParser {
 
 /**
  * Клиент z-torrents.ru: поиск по сайту, страница релиза и скачивание .torrent.
- * Всё доступно гостю, поэтому клиент Stateless — без входа и cookie.
+ * Всё доступно гостю, входа нет; cookie-сессию при этом держим, как браузер.
  */
 class ZTorrentsClient(baseClient: OkHttpClient) {
 
-    /** Сайт может отсекать запросы с «приложенческим» User-Agent — ходим как браузер. */
+    /**
+     * Ходим как браузер, а не как приложение: браузерный User-Agent и заголовки,
+     * Referer на сам сайт (без него режется отдача файлов из /uploads) и живая
+     * cookie-сессия — DLE без неё может не отдать поиск и страницу релиза.
+     */
     private val client: OkHttpClient = baseClient.newBuilder()
+        .cookieJar(InMemoryCookieJar())
         .addInterceptor(Interceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("User-Agent", BROWSER_USER_AGENT).build())
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header("User-Agent", BROWSER_USER_AGENT)
+                    .header("Accept", HTML_ACCEPT)
+                    .header("Accept-Language", RU_LANG)
+                    .header("Referer", "$ZTORRENTS_BASE/")
+                    .build(),
+            )
         })
         .build()
 
