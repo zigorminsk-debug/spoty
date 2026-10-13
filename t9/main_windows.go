@@ -146,6 +146,8 @@ func (a *App) run() {
 	if err := a.installHook(); err != nil {
 		logf("SetWindowsHookExW: %v", err)
 		msgBox(appTitle, "Не удалось установить хук клавиатуры: "+err.Error())
+	} else {
+		logf("хук клавиатуры установлен")
 	}
 	go a.gapTicker()
 
@@ -330,6 +332,36 @@ func (a *App) registerHotKey() {
 
 // --- Установка / автозапуск ----------------------------------------------------
 
+// quitFilePath — файл-запрос «выйди» для работающего экземпляра (обновление).
+func quitFilePath() string {
+	return filepath.Join(os.Getenv("LOCALAPPDATA"), "SpotyT9", "quit.requested")
+}
+
+// quitRequested — получен ли свежий (не старше 10 с) запрос на выход.
+func quitRequested() bool {
+	p := quitFilePath()
+	fi, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	if time.Since(fi.ModTime()) > 10*time.Second {
+		_ = os.Remove(p) // застарелый остаток после краша — игнорируем
+		return false
+	}
+	_ = os.Remove(p)
+	return true
+}
+
+// mutexHeld — удерживает ли другой процесс именованный мьютекс экземпляра.
+func mutexHeld() bool {
+	name := toUTF16(mutexName)
+	h, _, err := procCreateMutexW.Call(0, 0, uintptr(unsafe.Pointer(name)))
+	if h == 0 {
+		return false
+	}
+	return err == errorAlreadyExists
+}
+
 func selfInstall(cur, installDir, installExe string) (retErr error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -343,6 +375,15 @@ func selfInstall(cur, installDir, installExe string) (retErr error) {
 	if err != nil {
 		return err
 	}
+
+	// Просим работающую старую версию (если есть) выйти: она видит файл
+	// в течение ~100 мс и закрывается, освобождая exe для замены.
+	_ = os.WriteFile(quitFilePath(), []byte(time.Now().String()), 0o644)
+	for i := 0; i < 25 && mutexHeld(); i++ {
+		time.Sleep(200 * time.Millisecond)
+	}
+	_ = os.Remove(quitFilePath())
+
 	tmp := installExe + ".new"
 	if err := os.WriteFile(tmp, data, 0o755); err != nil {
 		return err

@@ -44,6 +44,7 @@ var (
 	procRegisterWindowMessageW   = user32.NewProc("RegisterWindowMessageW")
 	procGetCursorPos             = user32.NewProc("GetCursorPos")
 	procLoadCursorW              = user32.NewProc("LoadCursorW")
+	procGetKeyState              = user32.NewProc("GetKeyState")
 	procGetModuleHandleW         = kernel32.NewProc("GetModuleHandleW")
 	procCreateMutexW             = kernel32.NewProc("CreateMutexW")
 
@@ -71,20 +72,23 @@ const (
 
 	WH_KEYBOARD_LL = 13
 
-	// Флаги KBDLLHOOKSTRUCT.
-	LLKHF_EXTENDED = 0x0001
-	LLKHF_INJECTED = 0x0010
-	LLKHF_ALTDOWN  = 0x0020
-	LLKHF_UP       = 0x8000
-	LLKHF_CTRL     = 0x1000
-	LLKHF_SHIFT    = 0x2000
+	// Флаги KBDLLHOOKSTRUCT (есть только они!).
+	LLKHF_EXTENDED = 0x00000001
+	LLKHF_INJECTED = 0x00000010
+	LLKHF_ALTDOWN  = 0x00000020
+	LLKHF_UP       = 0x80000000
 
-	VK_BACK   = 0x08
-	VK_TAB    = 0x09
-	VK_RETURN = 0x0D
-	VK_SHIFT  = 0x10
-	VK_SPACE  = 0x20
-	VK_ESCAPE = 0x1B
+	VK_BACK    = 0x08
+	VK_TAB     = 0x09
+	VK_RETURN  = 0x0D
+	VK_SHIFT   = 0x10
+	VK_CONTROL = 0x11
+	VK_MENU    = 0x12
+	VK_CAPITAL = 0x14
+	VK_SPACE   = 0x20
+	VK_ESCAPE  = 0x1B
+	VK_LWIN    = 0x5B
+	VK_RWIN    = 0x5C
 
 	// Модификаторы RegisterHotKey.
 	MOD_ALT      = 0x0001

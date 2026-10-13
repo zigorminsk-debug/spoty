@@ -41,25 +41,35 @@ func llHookProc(code int32, wParam, lParam uintptr) uintptr {
 	return 0
 }
 
+// keyDown — нажата ли клавиша прямо сейчас (глобальное состояние клавиш).
+// Нужен, потому что в flags хука нет состояний Ctrl/Shift — только
+// LLKHF_EXTENDED/INJECTED/ALTDOWN/UP.
+func keyDown(vk uint32) bool {
+	v, _, _ := procGetKeyState.Call(uintptr(int32(vk)))
+	return int16(v)&0x8000 != 0
+}
+
 // handleKeyEvent обрабатывает одно нажатие клавиши (только «вниз»).
 // Возвращает true, если клавиша должна быть поглочена.
 func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	// Игнорируем собственные (впрыскиваемые) клавиши и отпускания.
+	// Игнорируем собственные (впрыскиваемые) клавиши и ВСЕ отпускания:
+	// иначе каждый «key up» добавит букву в черновик ещё раз.
 	if flags&(LLKHF_INJECTED|LLKHF_UP) != 0 {
 		return false
 	}
 
+	ctrl := keyDown(VK_CONTROL)
+	alt := flags&LLKHF_ALTDOWN != 0 || keyDown(VK_MENU)
+
 	// Backspace стирает последний символ «черновика» (сам символ при этом
 	// удаляется из поля обычным backspace — оставляем клавишу).
 	if vk == VK_BACK {
-		if flags&(LLKHF_CTRL|LLKHF_ALTDOWN) != 0 {
+		if ctrl || alt {
 			a.buf = nil // Ctrl+Backspace удаляет слово целиком — не проследим.
-			return false
-		}
-		if n := len(a.buf); n > 0 {
+		} else if n := len(a.buf); n > 0 {
 			a.buf = a.buf[:n-1]
 		}
 		return false
@@ -71,7 +81,8 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 	}
 
 	// Комбинации с Ctrl/Alt — шорткаты приложений, не буквы слова.
-	if flags&(LLKHF_CTRL|LLKHF_ALTDOWN) != 0 {
+	// Win/Alt сами по себе — уход от текста.
+	if ctrl || alt || vk == VK_MENU || vk == VK_LWIN || vk == VK_RWIN {
 		a.buf = nil
 		return false
 	}
@@ -86,7 +97,7 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 		return a.finalizeSeparator('\n')
 	}
 
-	ch, ok := a.charFor(vk, scan, flags)
+	ch, ok := a.charFor(vk, scan)
 	if !ok {
 		return false
 	}
@@ -162,6 +173,11 @@ func (a *App) gapTicker() {
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
 	for range t.C {
+		// Запрос на выход при обновлении (его ставит selfInstall).
+		if quitRequested() {
+			procPostMessageW.Call(a.winHWND, WM_DESTROY, 0, 0)
+			return
+		}
 		a.mu.Lock()
 		if a.t9On && len(a.buf) >= a.minLen() && time.Since(a.lastKeyAt) > a.gapTime() {
 			a.finishBurst(0)
@@ -173,28 +189,32 @@ func (a *App) gapTicker() {
 
 // charFor определяет символ, набранный физической клавишей, в раскладке
 // активного окна (нужно, чтобы VK A-Z в русской раскладке давал «ф», «ц», …).
-func (a *App) charFor(vk, scan, flags uint32) (rune, bool) {
+// Реальное состояние Shift/CapsLock берём через GetKeyState — в flags
+// хука этих состояний нет.
+func (a *App) charFor(vk, scan uint32) (rune, bool) {
 	hFore, _, _ := procGetForegroundWindow.Call()
 	if hFore == 0 {
 		return 0, false
 	}
 	tu, _, _ := procGetWindowThreadProcessId.Call(hFore, 0)
-	tid := uint32(tu)
-	hkl, _, _ := procGetKeyboardLayout.Call(uintptr(tid))
+	hkl, _, _ := procGetKeyboardLayout.Call(uintptr(uint32(tu)))
 
 	state := [256]byte{}
-	if flags&LLKHF_SHIFT != 0 {
-		state[0x10] = 0xFF
+	if keyDown(VK_SHIFT) {
+		state[VK_SHIFT] = 0xFF
 	}
-	if flags&LLKHF_CTRL != 0 {
-		state[0x11] = 0xFF
+	if keyDown(VK_CONTROL) {
+		state[VK_CONTROL] = 0xFF
 		state[0xA2] = 0xFF
 		state[0xA3] = 0xFF
 	}
-	if flags&LLKHF_ALTDOWN != 0 {
-		state[0x12] = 0xFF
+	if keyDown(VK_MENU) {
+		state[VK_MENU] = 0xFF
 		state[0xA4] = 0xFF
 		state[0xA5] = 0xFF
+	}
+	if c, _, _ := procGetKeyState.Call(uintptr(VK_CAPITAL)); int16(c)&1 != 0 {
+		state[VK_CAPITAL] = 1
 	}
 
 	var ch [2]uint16
