@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.zigorminsk.spoty.data.model.SearchResults
 import io.github.zigorminsk.spoty.di.AppContainer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,6 +75,8 @@ class SearchViewModel(private val container: AppContainer) : ViewModel() {
             val results = container.catalog.search(query)
             _state.value = _state.value.copy(loading = false, results = results, searched = true)
             if (!results.isEmpty) container.library.saveSearch(query)
+        } catch (e: CancellationException) {
+            throw e // быстрый ввод отменяет прошлый поиск — это не ошибка
         } catch (e: Exception) {
             _state.value = _state.value.copy(loading = false, error = true, searched = true)
         }
