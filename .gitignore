@@ -17,3 +17,6 @@ ci-out/
 
 # Spoty T9 (Go)
 t9/dist/
+t9/spoty-t9.log
+t9/spoty-t9.log.old
+t9/spoty-t9.exe
