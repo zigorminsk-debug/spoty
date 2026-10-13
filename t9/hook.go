@@ -55,7 +55,7 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 	// Backspace стирает последний символ «черновика» (сам символ при этом
 	// удаляется из поля обычным backspace — оставляем клавишу).
 	if vk == VK_BACK {
-		if flags&(LLKHF_CTRL|LLKHF_ALT) != 0 {
+		if flags&(LLKHF_CTRL|LLKHF_ALTDOWN) != 0 {
 			a.buf = nil // Ctrl+Backspace удаляет слово целиком — не проследим.
 			return false
 		}
@@ -71,7 +71,7 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 	}
 
 	// Комбинации с Ctrl/Alt — шорткаты приложений, не буквы слова.
-	if flags&(LLKHF_CTRL|LLKHF_ALT) != 0 {
+	if flags&(LLKHF_CTRL|LLKHF_ALTDOWN) != 0 {
 		a.buf = nil
 		return false
 	}
@@ -178,8 +178,8 @@ func (a *App) charFor(vk, scan, flags uint32) (rune, bool) {
 	if hFore == 0 {
 		return 0, false
 	}
-	var tid uint32
-	tid, _, _ = procGetWindowThreadProcessId.Call(hFore, 0)
+	tu, _, _ := procGetWindowThreadProcessId.Call(hFore, 0)
+	tid := uint32(tu)
 	hkl, _, _ := procGetKeyboardLayout.Call(uintptr(tid))
 
 	state := [256]byte{}

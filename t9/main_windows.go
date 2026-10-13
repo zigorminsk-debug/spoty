@@ -192,7 +192,8 @@ func (a *App) initWindow() {
 	if a.winHWND == 0 {
 		logf("CreateWindowExW: %v", err)
 	}
-	a.taskbarMsg, _, _ = procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(toUTF16("TaskbarCreated"))))
+	tm, _, _ := procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(toUTF16("TaskbarCreated"))))
+	a.taskbarMsg = uint32(tm)
 }
 
 // wndProc — обработчик сообщения message-only окна.

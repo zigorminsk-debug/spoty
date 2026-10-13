@@ -20,7 +20,7 @@ func initLog() {
 	if os.Getenv("LOCALAPPDATA") == "" {
 		return
 	}
-	logDir = filepath.Join(os.Getenv("LOCALAPPDATA"), "SpotyT9")
+	d := logDir
 	if err := os.MkdirAll(d, 0o755); err != nil {
 		return
 	}
