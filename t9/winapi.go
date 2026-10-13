@@ -13,6 +13,7 @@ var (
 	user32   = syscall.NewLazyDLL("user32.dll")
 	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 	advapi   = syscall.NewLazyDLL("advapi32.dll")
+	shell32  = syscall.NewLazyDLL("shell32.dll")
 )
 
 var (
