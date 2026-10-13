@@ -14,3 +14,6 @@ captures/
 # Локальные артефакты CI
 build.log
 ci-out/
+
+# Spoty T9 (Go)
+t9/dist/
