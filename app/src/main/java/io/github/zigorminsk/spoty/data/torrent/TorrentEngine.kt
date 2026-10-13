@@ -46,9 +46,9 @@ data class TorrentStats(
  */
 class TorrentEngine(private val context: Context) {
 
-    /** Как получить .torrent по идентификатору темы (подставляется из AppContainer). */
+    /** Как получить .torrent по источнику и идентификатору темы (подставляется из AppContainer). */
     @Volatile
-    var torrentFetcher: (suspend (Long) -> ByteArray)? = null
+    var torrentFetcher: (suspend (source: String, topicId: Long) -> ByteArray)? = null
 
     private val session = SessionManager()
     private val lock = Any()
@@ -61,7 +61,7 @@ class TorrentEngine(private val context: Context) {
 
     private val metaDir: File get() = File(root, "meta")
 
-    private fun metaFile(topicId: Long) = File(metaDir, "$topicId.torrent")
+    private fun metaFile(source: String, topicId: Long) = File(metaDir, "$source-$topicId.torrent")
 
     fun ensureStarted() {
         synchronized(lock) {
@@ -70,21 +70,21 @@ class TorrentEngine(private val context: Context) {
     }
 
     /** Метаданные раздачи из локального кэша .torrent-файлов. */
-    fun cachedInfo(topicId: Long): TorrentInfo? =
-        metaFile(topicId).takeIf { it.exists() }?.let { f -> runCatching { TorrentInfo(f) }.getOrNull() }
+    fun cachedInfo(source: String, topicId: Long): TorrentInfo? =
+        metaFile(source, topicId).takeIf { it.exists() }?.let { f -> runCatching { TorrentInfo(f) }.getOrNull() }
 
     /**
      * Добавляет раздачу в сессию (скачивая .torrent при необходимости) и возвращает метаданные.
      * Повторный вызов для уже добавленной раздачи безопасен.
      */
-    suspend fun prepare(topicId: Long): TorrentInfo = addMutex.withLock {
+    suspend fun prepare(source: String, topicId: Long): TorrentInfo = addMutex.withLock {
         ensureStarted()
-        val info = cachedInfo(topicId) ?: run {
+        val info = cachedInfo(source, topicId) ?: run {
             val fetch = torrentFetcher ?: throw IOException("torrent fetcher is not configured")
-            val bytes = fetch(topicId)
+            val bytes = fetch(source, topicId)
             val parsed = TorrentInfo(bytes)
             metaDir.mkdirs()
-            metaFile(topicId).writeBytes(bytes)
+            metaFile(source, topicId).writeBytes(bytes)
             parsed
         }
         if (session.find(info.infoHash()) == null) {
@@ -109,15 +109,15 @@ class TorrentEngine(private val context: Context) {
      * Блокирующая версия [prepare] для потока загрузки ExoPlayer.
      * Возвращает метаданные и handle раздачи в сессии.
      */
-    fun prepareBlocking(topicId: Long): Pair<TorrentInfo, TorrentHandle> = runBlocking {
-        val info = prepare(topicId)
+    fun prepareBlocking(source: String, topicId: Long): Pair<TorrentInfo, TorrentHandle> = runBlocking {
+        val info = prepare(source, topicId)
         val handle = session.find(info.infoHash()) ?: throw IOException("torrent is not in session")
         info to handle
     }
 
-    fun handle(topicId: Long): TorrentHandle? {
+    fun handle(source: String, topicId: Long): TorrentHandle? {
         ensureStarted()
-        return cachedInfo(topicId)?.let { session.find(it.infoHash()) }
+        return cachedInfo(source, topicId)?.let { session.find(it.infoHash()) }
     }
 
     /** Аудиофайлы раздачи в порядке путей (обычно совпадает с порядком треков). */
@@ -142,8 +142,8 @@ class TorrentEngine(private val context: Context) {
         File(dataDir, info.files().filePath(fileIndex))
 
     /** Текущее состояние раздачи (null, если она не в сессии). */
-    fun stats(topicId: Long): TorrentStats? {
-        val h = handle(topicId) ?: return null
+    fun stats(source: String, topicId: Long): TorrentStats? {
+        val h = handle(source, topicId) ?: return null
         if (!h.isValid) return null
         val st = h.status()
         val fileDone = runCatching { h.fileProgress(TorrentHandle.PIECE_GRANULARITY) }.getOrNull() ?: LongArray(0)

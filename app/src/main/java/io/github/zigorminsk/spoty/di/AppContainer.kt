@@ -23,6 +23,8 @@ import io.github.zigorminsk.spoty.data.remote.JamendoSource
 import io.github.zigorminsk.spoty.data.remote.LrcLibClient
 import io.github.zigorminsk.spoty.data.remote.MusicSource
 import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerClient
+import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTORRENTS_SOURCE
+import io.github.zigorminsk.spoty.data.remote.ztorrents.ZTorrentsClient
 import io.github.zigorminsk.spoty.data.torrent.TorrentEngine
 import io.github.zigorminsk.spoty.data.repo.BackupRepository
 import io.github.zigorminsk.spoty.data.repo.CatalogRepository
@@ -90,9 +92,14 @@ class AppContainer(val app: Application) {
     /** RuTracker: вход по логину/паролю, поиск раздач, скачивание .torrent. */
     val rutracker = RuTrackerClient(apiClient, settings)
 
+    /** Z-Torrents: сборники с открытыми торрентами — вход и cookie не нужны. */
+    val ztorrents = ZTorrentsClient(apiClient)
+
     /** Встроенный BitTorrent-движок: проигрывание музыки прямо из раздач. */
     val torrentEngine = TorrentEngine(app).also { engine ->
-        engine.torrentFetcher = { topicId -> rutracker.torrentBytes(topicId) }
+        engine.torrentFetcher = { source, topicId ->
+            if (source == ZTORRENTS_SOURCE) ztorrents.torrentBytes(topicId) else rutracker.torrentBytes(topicId)
+        }
     }
 
     val player = PlayerController(app, library)

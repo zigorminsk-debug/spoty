@@ -102,6 +102,26 @@ fun SearchScreen(navController: NavHostController, menu: TrackMenuController) {
             Icon(painterResource(R.drawable.ic_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
+        // Поиск по Z-Torrents: торренты открыты для гостей, аккаунт не нужен.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { navController.navigate(Routes.ztorrents(state.query)) }
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            Icon(painterResource(R.drawable.ic_explore), null, tint = MaterialTheme.colorScheme.primary)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(stringResource(R.string.ztorrents_search_on), style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    stringResource(R.string.ztorrents_entry_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(painterResource(R.drawable.ic_chevron_right), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         if (state.searched && !state.results.isEmpty) {
             LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(SearchTab.entries) { tab ->

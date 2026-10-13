@@ -12,6 +12,7 @@ enum class SourceId(val key: String, val title: String) {
         fun fromKey(key: String?): SourceId? = entries.firstOrNull { it.key == key }
         fun title(key: String?): String = fromKey(key)?.title ?: when (key) {
             "rutracker" -> "RuTracker"
+            "ztorrents" -> "Z-Torrents"
             else -> key ?: ""
         }
     }

@@ -211,6 +211,13 @@
     <string name="rutracker_web_login">Войти через встроенный браузер</string>
     <string name="rutracker_web_login_title">Вход в RuTracker</string>
     <string name="rutracker_web_login_hint">Откроется настоящая страница входа трекера — её защита от ботов пропускает как обычный браузер. После входа сессия сохранится в приложении, и окно закроется само.</string>
+
+    <!-- Z-Torrents -->
+    <string name="ztorrents">Z-Torrents</string>
+    <string name="ztorrents_search_on">Искать на Z-Torrents</string>
+    <string name="ztorrents_entry_desc">Сборники и альбомы с открытыми торрентами — аккаунт не нужен</string>
+    <string name="ztorrents_search_hint">Поиск релизов…</string>
+    <string name="ztorrents_hint">Введите запрос — найдём релизы, торренты которых открыты для гостей</string>
     <string name="rutracker_login">Логин</string>
     <string name="rutracker_password">Пароль</string>
     <string name="rutracker_sign_in">Войти</string>

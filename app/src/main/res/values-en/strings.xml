@@ -192,6 +192,12 @@
     <string name="rutracker_web_login">Sign in via built-in browser</string>
     <string name="rutracker_web_login_title">Sign in to RuTracker</string>
     <string name="rutracker_web_login_hint">The real tracker sign-in page opens — its bot protection treats it as a normal browser. After signing in, the session is saved in the app and the window closes on its own.</string>
+
+    <string name="ztorrents">Z-Torrents</string>
+    <string name="ztorrents_search_on">Search on Z-Torrents</string>
+    <string name="ztorrents_entry_desc">Compilations and albums with open torrents — no account needed</string>
+    <string name="ztorrents_search_hint">Search releases…</string>
+    <string name="ztorrents_hint">Type a query — we will find releases whose torrents are open to guests</string>
     <string name="rutracker_login">Username</string>
     <string name="rutracker_password">Password</string>
     <string name="rutracker_sign_in">Sign in</string>

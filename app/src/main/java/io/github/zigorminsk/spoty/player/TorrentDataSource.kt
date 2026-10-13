@@ -39,13 +39,15 @@ class TorrentDataSource(private val engine: TorrentEngine) : BaseDataSource(/* i
 
     override fun open(dataSpec: DataSpec): Long {
         val u = dataSpec.uri
-        val topicId = u.host?.toLongOrNull() ?: throw IOException("bad torrent uri: $u")
-        val index = u.lastPathSegment?.toIntOrNull() ?: throw IOException("bad torrent uri: $u")
+        // torrent://<источник>/<topicId>/<fileIndex>: источник решает, где брать .torrent.
+        val sourceKey = u.host ?: throw IOException("bad torrent uri: $u")
+        val topicId = u.pathSegments.getOrNull(0)?.toLongOrNull() ?: throw IOException("bad torrent uri: $u")
+        val index = u.pathSegments.getOrNull(1)?.toIntOrNull() ?: throw IOException("bad torrent uri: $u")
         uri = u
         transferInitializing(dataSpec)
 
         // Добавляет раздачу в сессию; .torrent берётся из кэша или скачивается с трекера.
-        val (ti, th) = engine.prepareBlocking(topicId)
+        val (ti, th) = engine.prepareBlocking(sourceKey, topicId)
         if (index < 0 || index >= ti.numFiles()) throw IOException("bad file index: $u")
         info = ti
         handle = th

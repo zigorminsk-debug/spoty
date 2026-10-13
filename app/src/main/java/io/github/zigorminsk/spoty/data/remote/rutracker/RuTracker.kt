@@ -20,10 +20,11 @@ import org.jsoup.Jsoup
 /** Ключ источника в идентификаторах треков: «rutracker:<topic>:<file>». */
 const val RUTRACKER_SOURCE = "rutracker"
 
-/** Схема URI для проигрывания файлов из раздач: torrent://<topicId>/<fileIndex>. */
+/** Схема URI для проигрывания файлов из раздач: torrent://<источник>/<topicId>/<fileIndex>. */
 const val TORRENT_URI_SCHEME = "torrent"
 
-fun torrentStreamUrl(topicId: Long, fileIndex: Int): String = "$TORRENT_URI_SCHEME://$topicId/$fileIndex"
+fun torrentStreamUrl(source: String, topicId: Long, fileIndex: Int): String =
+    "$TORRENT_URI_SCHEME://$source/$topicId/$fileIndex"
 
 /**
  * Адрес зеркала к каноническому виду «схема://хост»: «rutracker.org» → «https://rutracker.org»,

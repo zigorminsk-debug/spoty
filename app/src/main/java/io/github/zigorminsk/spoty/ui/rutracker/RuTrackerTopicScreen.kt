@@ -77,7 +77,7 @@ class RuTrackerTopicViewModel(
         viewModelScope.launch {
             while (isActive) {
                 val stats = withContext(Dispatchers.IO) {
-                    runCatching { container.torrentEngine.stats(topicId) }.getOrNull()
+                    runCatching { container.torrentEngine.stats(RUTRACKER_SOURCE, topicId) }.getOrNull()
                 }
                 _state.update { it.copy(stats = stats) }
                 delay(1_000L)
@@ -90,7 +90,7 @@ class RuTrackerTopicViewModel(
             _state.update { it.copy(loading = true, error = false, authError = false) }
             try {
                 val engine = container.torrentEngine
-                val info = withContext(Dispatchers.IO) { engine.prepare(topicId) }
+                val info = withContext(Dispatchers.IO) { engine.prepare(RUTRACKER_SOURCE, topicId) }
                 val files = withContext(Dispatchers.IO) { engine.audioFiles(info) }
                 val (artist, album) = RuTrackerParser.splitTitle(topicTitle)
                 val name = info.name().orEmpty()
@@ -103,7 +103,7 @@ class RuTrackerTopicViewModel(
                         artistName = artist ?: name.ifBlank { "RuTracker" },
                         albumId = null,
                         albumTitle = album ?: topicTitle.ifBlank { name },
-                        streamUrl = torrentStreamUrl(topicId, file.index),
+                        streamUrl = torrentStreamUrl(RUTRACKER_SOURCE, topicId, file.index),
                         webUrl = "${container.settings.value.rutrackerMirror}/forum/viewtopic.php?t=$topicId",
                     )
                 }
