@@ -199,7 +199,15 @@
     <string name="rutracker_open_settings">Открыть настройки</string>
     <string name="rutracker_settings_desc">Поиск и проигрывание музыки из раздач трекера. Нужен аккаунт RuTracker; логин и пароль хранятся только на устройстве.</string>
     <string name="rutracker_mirror">Адрес зеркала</string>
-    <string name="rutracker_mirror_hint">Например, https://rutracker.org или https://rutracker.net</string>
+    <string name="rutracker_mirror_hint">Можно без схемы — https:// подставится сам. Например, rutracker.org или rutracker.net</string>
+    <string name="rutracker_unreachable">Не удалось открыть зеркало: проверьте адрес и подключение к сети</string>
+    <string name="rutracker_blocked">Трекер отклонил запрос (защита от ботов, HTTP %1$d). Попробуйте позже или подключитесь cookie из браузера</string>
+    <string name="rutracker_cookie_hint">Если трекер не пускает приложение (защита от ботов, капча), войдите в аккаунт в браузере и вставьте сюда cookie — поиск и плеер будут работать от неё.</string>
+    <string name="rutracker_cookie">Cookie из браузера (bb_session=…)</string>
+    <string name="rutracker_cookie_save">Подключить cookie</string>
+    <string name="rutracker_cookie_saved">Cookie сохранена</string>
+    <string name="rutracker_cookie_invalid">В строке нет bb_session=… — скопируйте cookie целиком</string>
+    <string name="rutracker_cookie_session">Подключено: cookie из браузера</string>
     <string name="rutracker_login">Логин</string>
     <string name="rutracker_password">Пароль</string>
     <string name="rutracker_sign_in">Войти</string>

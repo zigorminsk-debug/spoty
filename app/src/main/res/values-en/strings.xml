@@ -180,7 +180,15 @@
     <string name="rutracker_open_settings">Open settings</string>
     <string name="rutracker_settings_desc">Search and play music from tracker releases. A RuTracker account is required; credentials are stored on this device only.</string>
     <string name="rutracker_mirror">Mirror address</string>
-    <string name="rutracker_mirror_hint">For example, https://rutracker.org or https://rutracker.net</string>
+    <string name="rutracker_mirror_hint">Scheme is optional — https:// is added automatically. For example, rutracker.org or rutracker.net</string>
+    <string name="rutracker_unreachable">Can\'t open the mirror: check the address and network connection</string>
+    <string name="rutracker_blocked">The tracker rejected the request (bot protection, HTTP %1$d). Try again later or connect with a browser cookie</string>
+    <string name="rutracker_cookie_hint">If the tracker blocks the app (bot protection, captcha), sign in in a browser and paste the cookie here — search and playback will use it.</string>
+    <string name="rutracker_cookie">Cookie from browser (bb_session=…)</string>
+    <string name="rutracker_cookie_save">Connect cookie</string>
+    <string name="rutracker_cookie_saved">Cookie saved</string>
+    <string name="rutracker_cookie_invalid">No bb_session=… in the string — copy the whole cookie</string>
+    <string name="rutracker_cookie_session">Connected: browser cookie</string>
     <string name="rutracker_login">Username</string>
     <string name="rutracker_password">Password</string>
     <string name="rutracker_sign_in">Sign in</string>

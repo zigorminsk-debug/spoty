@@ -8,6 +8,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -23,6 +24,24 @@ const val RUTRACKER_SOURCE = "rutracker"
 const val TORRENT_URI_SCHEME = "torrent"
 
 fun torrentStreamUrl(topicId: Long, fileIndex: Int): String = "$TORRENT_URI_SCHEME://$topicId/$fileIndex"
+
+/**
+ * Адрес зеркала к каноническому виду «схема://хост»: «rutracker.org» → «https://rutracker.org»,
+ * «http://rutracker.net/forum/» → «http://rutracker.net». Пустая строка остаётся пустой.
+ * Без схемы OkHttp бросил бы исключение на первом же запросе.
+ */
+fun normalizeMirrorUrl(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return trimmed
+    val scheme = if ("://" in trimmed) trimmed.substringBefore("://").ifBlank { "https" } else "https"
+    val rest = trimmed.substringAfter("://", trimmed)
+    val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#').trim()
+    return if (authority.isEmpty()) trimmed else "$scheme://$authority"
+}
+
+/** Браузероподобный User-Agent: часть защит трекера отсекает запросы «не из браузера». */
+internal const val BROWSER_USER_AGENT =
+    "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
 
 /** Раздача из результатов поиска трекера. */
 data class RuTrackerTopic(
@@ -43,6 +62,12 @@ sealed class RuTrackerError(message: String) : IOException(message) {
 
     /** Логин или пароль не подошли. */
     class BadCredentials : RuTrackerError("rutracker: bad credentials")
+
+    /** Зеркало не открылось: неверный адрес, DNS, TLS или таймаут. */
+    class Unreachable(detail: String = "") : RuTrackerError(("rutracker: mirror unreachable $detail").trim())
+
+    /** Трекер или его защита отклонили запрос (HTTP 403/429/503). */
+    class Blocked(val code: Int) : RuTrackerError("rutracker: request blocked, http $code")
 }
 
 /** Разбор HTML-страниц RuTracker. Вынесен отдельно, чтобы покрыть тестами без Android. */
@@ -112,17 +137,31 @@ class RuTrackerClient(
     baseClient: OkHttpClient,
     private val settings: SettingsStore,
 ) {
+    /** Своим User-Agent приложение светить не должно: подменяем на браузерный после общего интерцептора. */
+    private val browserized: OkHttpClient = baseClient.newBuilder()
+        .addInterceptor(Interceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("User-Agent", BROWSER_USER_AGENT).build())
+        })
+        .build()
+
     /** Клиент для обычных страниц: следует редиректам (по ним же понимаем, что сессия истекла). */
-    private val web: OkHttpClient = baseClient.newBuilder().followRedirects(true).build()
+    private val web: OkHttpClient = browserized.newBuilder().followRedirects(true).build()
 
     /** Клиент для входа: редиректам не следует, чтобы прочитать Set-Cookie из ответа 302. */
-    private val noRedirect: OkHttpClient = baseClient.newBuilder().followRedirects(false).build()
+    private val noRedirect: OkHttpClient = browserized.newBuilder().followRedirects(false).build()
 
     /** Свежая cookie-сессия: DataStore обновляется асинхронно, поэтому держим и локальную копию. */
     @Volatile
     private var cookieCache: String? = null
 
-    private fun base(): String = settings.value.rutrackerMirror.trim().trimEnd('/')
+    private fun base(): String {
+        val normalized = normalizeMirrorUrl(settings.value.rutrackerMirror)
+        // Пустой адрес или мусор без хоста — иначе OkHttp упадёт на разборе URL.
+        if (normalized.substringAfter("://", "").isBlank()) {
+            throw RuTrackerError.Unreachable(settings.value.rutrackerMirror)
+        }
+        return normalized
+    }
 
     private fun forumUrl(pathAndQuery: String): String = "${base()}/forum/$pathAndQuery"
 
@@ -151,6 +190,14 @@ class RuTrackerClient(
             })
         }
 
+    /** То же [execute], но сетевой сбой (DNS, TLS, таймаут) превращает в понятную ошибку зеркала. */
+    private suspend fun executeSafe(client: OkHttpClient, request: Request): Response =
+        try {
+            execute(client, request)
+        } catch (e: IOException) {
+            throw RuTrackerError.Unreachable(e.message.orEmpty())
+        }
+
     /**
      * Вход по логину и паролю. При успехе сохраняет учётные данные и cookie-сессию в настройках.
      * @throws RuTrackerError.Captcha если трекер показал капчу;
@@ -161,9 +208,12 @@ class RuTrackerClient(
         val request = Request.Builder()
             .url(url)
             .header("Referer", url)
+            .header("Origin", base())
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .header("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.7,en;q=0.5")
             .post(formBody("login_username" to login, "login_password" to password, "login" to "вход"))
             .build()
-        execute(noRedirect, request).use { r ->
+        executeSafe(noRedirect, request).use { r ->
             val cookies = r.headers("Set-Cookie")
                 .map { it.substringBefore(';').trim() }
                 .filter { c -> '=' in c && !c.endsWith("=") && !c.endsWith("=deleted") }
@@ -177,6 +227,9 @@ class RuTrackerClient(
             }
             val body = runCatching { r.body?.string().orEmpty() }.getOrDefault("")
             if ("cap_sid" in body) throw RuTrackerError.Captcha()
+            // Защита от ботов или недоступный ответ сервера — это не «неверный пароль».
+            if (r.code == 403 || r.code == 429 || r.code == 503) throw RuTrackerError.Blocked(r.code)
+            if (!r.isSuccessful) throw RuTrackerError.Unreachable("http ${r.code}")
             throw RuTrackerError.BadCredentials()
         }
     }
@@ -208,7 +261,7 @@ class RuTrackerClient(
         repeat(2) { attempt ->
             val url = forumUrl("tracker.php?nm=${encode(query)}&o=10&s=2")
             val request = Request.Builder().url(url).header("Cookie", cookie).build()
-            val html = execute(web, request).use { r ->
+            val html = executeSafe(web, request).use { r ->
                 if (isLoginRedirect(r)) null else r.body?.string().orEmpty()
             }
             if (html != null) return RuTrackerParser.parseSearch(html)
@@ -226,7 +279,7 @@ class RuTrackerClient(
                 .header("Cookie", cookie)
                 .header("Referer", forumUrl("viewtopic.php?t=$topicId"))
                 .build()
-            val bytes = execute(web, request).use { r ->
+            val bytes = executeSafe(web, request).use { r ->
                 val body = r.body?.bytes() ?: ByteArray(0)
                 // .torrent — это bencode-словарь, он всегда начинается с байта «d».
                 val isTorrent = r.isSuccessful && body.isNotEmpty() && body[0] == 'd'.code.toByte()

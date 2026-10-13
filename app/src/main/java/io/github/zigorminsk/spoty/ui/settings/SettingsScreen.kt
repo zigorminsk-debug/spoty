@@ -43,6 +43,7 @@ import androidx.navigation.NavHostController
 import io.github.zigorminsk.spoty.BuildConfig
 import io.github.zigorminsk.spoty.R
 import io.github.zigorminsk.spoty.data.model.SourceId
+import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerError
 import io.github.zigorminsk.spoty.data.settings.ThemeMode
 import io.github.zigorminsk.spoty.ui.LocalAppContainer
 import kotlinx.coroutines.launch
@@ -199,9 +200,11 @@ fun SettingsScreen(navController: NavHostController, snackbar: SnackbarHostState
             var rtLogin by rememberSaveable { mutableStateOf(container.settings.value.rutrackerLogin) }
             var rtPassword by rememberSaveable { mutableStateOf("") }
             var rtBusy by remember { mutableStateOf(false) }
+            var rtCookie by rememberSaveable { mutableStateOf("") }
             val loginOkText = stringResource(R.string.rutracker_login_ok)
             val loginFailedText = stringResource(R.string.rutracker_login_failed)
             val captchaText = stringResource(R.string.rutracker_captcha)
+            val unreachableText = stringResource(R.string.rutracker_unreachable)
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                 OutlinedTextField(
                     value = rtLogin,
@@ -224,18 +227,55 @@ fun SettingsScreen(navController: NavHostController, snackbar: SnackbarHostState
                     onClick = {
                         scope.launch {
                             rtBusy = true
-                            runCatching { container.rutracker.login(rtLogin.trim(), rtPassword) }
+                            val result = runCatching { container.rutracker.login(rtLogin.trim(), rtPassword) }
+                            // Кнопку отпускаем ДО снакбара: иначе она висит заблокированной, пока он виден.
+                            rtBusy = false
+                            result
                                 .onSuccess { snackbar.showSnackbar(loginOkText) }
                                 .onFailure { e ->
                                     snackbar.showSnackbar(
-                                        if (e is io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerError.Captcha) captchaText else loginFailedText,
+                                        when (e) {
+                                            is RuTrackerError.Captcha -> captchaText
+                                            is RuTrackerError.Unreachable -> unreachableText
+                                            is RuTrackerError.Blocked ->
+                                                context.getString(R.string.rutracker_blocked, e.code)
+                                            else -> loginFailedText
+                                        },
                                     )
                                 }
-                            rtBusy = false
                         }
                     },
                     modifier = Modifier.padding(top = 10.dp),
                 ) { Text(stringResource(R.string.rutracker_sign_in)) }
+                // Запасной путь: если защита трекера не пускает приложение — cookie из браузера.
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                Text(
+                    stringResource(R.string.rutracker_cookie_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = rtCookie,
+                    onValueChange = { rtCookie = it },
+                    label = { Text(stringResource(R.string.rutracker_cookie)) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                TextButton(
+                    enabled = rtCookie.isNotBlank(),
+                    onClick = {
+                        scope.launch {
+                            if (!rtCookie.contains("bb_session=")) {
+                                snackbar.showSnackbar(context.getString(R.string.rutracker_cookie_invalid))
+                            } else {
+                                container.settings.setRutrackerCookie(rtCookie)
+                                rtCookie = ""
+                                snackbar.showSnackbar(context.getString(R.string.rutracker_cookie_saved))
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 2.dp),
+                ) { Text(stringResource(R.string.rutracker_cookie_save)) }
             }
         } else {
             Row(
@@ -244,7 +284,11 @@ fun SettingsScreen(navController: NavHostController, snackbar: SnackbarHostState
             ) {
                 Icon(painterResource(R.drawable.ic_check_circle), null, tint = MaterialTheme.colorScheme.primary)
                 Text(
-                    stringResource(R.string.rutracker_connected, settings.rutrackerLogin),
+                    if (settings.rutrackerLogin.isBlank()) {
+                        stringResource(R.string.rutracker_cookie_session)
+                    } else {
+                        stringResource(R.string.rutracker_connected, settings.rutrackerLogin)
+                    },
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f).padding(start = 14.dp),
                 )

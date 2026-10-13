@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.zigorminsk.spoty.BuildConfig
 import io.github.zigorminsk.spoty.data.model.SourceId
+import io.github.zigorminsk.spoty.data.remote.rutracker.normalizeMirrorUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -113,7 +114,9 @@ class SettingsStore(private val context: Context, scope: CoroutineScope) {
     suspend fun setLastSync(value: Long) = store.edit { it[Keys.lastSync] = value }.let { }
 
     suspend fun setRutrackerMirror(value: String) =
-        store.edit { it[Keys.rtMirror] = value.trim().trimEnd('/').ifBlank { AppSettings().rutrackerMirror } }.let { }
+        store.edit {
+            it[Keys.rtMirror] = normalizeMirrorUrl(value).ifBlank { AppSettings().rutrackerMirror }
+        }.let { }
 
     suspend fun setRutrackerAuth(login: String, password: String) = store.edit { p ->
         p[Keys.rtLogin] = login.trim()

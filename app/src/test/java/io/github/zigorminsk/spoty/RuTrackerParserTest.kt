@@ -1,6 +1,7 @@
 package io.github.zigorminsk.spoty
 
 import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerParser
+import io.github.zigorminsk.spoty.data.remote.rutracker.normalizeMirrorUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -84,5 +85,16 @@ class RuTrackerParserTest {
         assertEquals("Teardrop", RuTrackerParser.cleanFileTitle("03 - Teardrop"))
         assertEquals("Blue in Green", RuTrackerParser.cleanFileTitle("05_Blue_in_Green"))
         assertEquals("Angel", RuTrackerParser.cleanFileTitle("Angel"))
+    }
+
+    @Test
+    fun `normalizes mirror urls`() {
+        // Без схемы OkHttp бросил бы исключение на первом запросе — частый случай из настроек.
+        assertEquals("https://rutracker.org", normalizeMirrorUrl("rutracker.org"))
+        assertEquals("https://z-torrents.ru", normalizeMirrorUrl("z-torrents.ru"))
+        assertEquals("https://rutracker.org", normalizeMirrorUrl(" https://rutracker.org/ "))
+        assertEquals("http://rutracker.net", normalizeMirrorUrl("http://rutracker.net/forum/"))
+        assertEquals("https://rutracker.nl", normalizeMirrorUrl("rutracker.nl/forum/tracker.php?nm=x"))
+        assertEquals("", normalizeMirrorUrl("   "))
     }
 }
