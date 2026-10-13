@@ -5,6 +5,8 @@ package main
 import (
 	"encoding/binary"
 	"unsafe"
+
+	"syscall"
 )
 
 // --- Иконка трея -----------------------------------------------------------
@@ -88,7 +90,7 @@ func (a *App) newNID() *notifyIconData {
 }
 
 func setNIDTip(n *notifyIconData, tip string) {
-	w := toUTF16(tip)
+	w := syscall.StringToUTF16(tip) // []uint16, включая NUL
 	if len(w) > 128 {
 		w = w[:128]
 	}

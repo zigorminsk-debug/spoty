@@ -38,7 +38,7 @@ func setRunKey(path string) error {
 	}
 	defer procRegCloseKey.Call(h)
 	name := toUTF16(appName)
-	val := toUTF16(`"` + path + `"`)
+	val := syscall.StringToUTF16(`"` + path + `"`) // []uint16, включая NUL
 	r, _, err := procRegSetValueExW.Call(
 		h,
 		uintptr(unsafe.Pointer(name)),
