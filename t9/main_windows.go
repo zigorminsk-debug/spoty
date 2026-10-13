@@ -72,7 +72,7 @@ func main() {
 		if r := recover(); r != nil {
 			msgBox(appTitle,
 				"Внутренняя ошибка (panic): "+fmt.Sprint(r)+"\n\n"+
-					"Журнал: %LOCALAPPDATA%\\SpotyT9\\spoty-t9.log")
+					"Журнал: "+filepath.Join(os.Getenv("LOCALAPPDATA"), "SpotyT9", "spoty-t9.log"))
 		}
 	}()
 

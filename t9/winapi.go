@@ -35,7 +35,7 @@ var (
 	procSendInput                = user32.NewProc("SendInput")
 	procVkKeyScanW               = user32.NewProc("VkKeyScanW")
 	procMessageBoxW              = user32.NewProc("MessageBoxW")
-	procShellNotifyIconW         = user32.NewProc("Shell_NotifyIconW")
+	procShellNotifyIconW         = shell32.NewProc("Shell_NotifyIconW")
 	procCreateIconFromResourceEx = user32.NewProc("CreateIconFromResourceEx")
 	procToUnicodeEx              = user32.NewProc("ToUnicodeEx")
 	procGetKeyboardLayout        = user32.NewProc("GetKeyboardLayout")
