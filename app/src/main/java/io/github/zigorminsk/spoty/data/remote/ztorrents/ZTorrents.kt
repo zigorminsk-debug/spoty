@@ -1,5 +1,6 @@
 package io.github.zigorminsk.spoty.data.remote.ztorrents
 
+import io.github.zigorminsk.spoty.data.remote.rutracker.BROWSER_USER_AGENT
 import io.github.zigorminsk.spoty.data.remote.rutracker.RuTrackerParser
 import java.io.IOException
 import java.net.URLEncoder
@@ -8,6 +9,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -15,6 +17,15 @@ import org.jsoup.Jsoup
 
 /** Ключ источника в идентификаторах треков: «ztorrents:<релиз>:<file>». */
 const val ZTORRENTS_SOURCE = "ztorrents"
+
+/** Приводит ссылку со страницы релиза к абсолютной: OkHttp не умеет относительные URL. */
+fun resolveZtorrentsUrl(href: String): String = when {
+    href.startsWith("http://") || href.startsWith("https://") -> href
+    href.startsWith("//") -> "https:$href"
+    href.startsWith("/") -> ZTORRENTS_BASE + href
+    href.isBlank() -> href
+    else -> "$ZTORRENTS_BASE/$href"
+}
 
 /**
  * Адрес сайта: музыкальный трекер на DLE. Торренты открыты для гостей —
@@ -85,8 +96,10 @@ object ZTorrentsParser {
             title = (doc.selectFirst("h1")?.text()?.trim() ?: doc.title())
                 .removeSuffix(" скачать через торрент")
                 .trim(),
-            torrentUrl = doc.selectFirst("a[href$=.torrent]")?.attr("href")?.takeIf { it.isNotBlank() },
-            coverUrl = doc.selectFirst("img[src*=/uploads/posts/]")?.attr("src")?.takeIf { it.isNotBlank() },
+            torrentUrl = doc.selectFirst("a[href$=.torrent]")?.attr("href")?.takeIf { it.isNotBlank() }
+                ?.let { resolveZtorrentsUrl(it) },
+            coverUrl = doc.selectFirst("img[src*=/uploads/posts/]")?.attr("src")?.takeIf { it.isNotBlank() }
+                ?.let { resolveZtorrentsUrl(it) },
             infoText = body
                 .substringAfter("Информация об альбоме", "")
                 .substringBefore("Скачать торрент")
@@ -115,7 +128,14 @@ object ZTorrentsParser {
  * Клиент z-torrents.ru: поиск по сайту, страница релиза и скачивание .torrent.
  * Всё доступно гостю, поэтому клиент Stateless — без входа и cookie.
  */
-class ZTorrentsClient(private val baseClient: OkHttpClient) {
+class ZTorrentsClient(baseClient: OkHttpClient) {
+
+    /** Сайт может отсекать запросы с «приложенческим» User-Agent — ходим как браузер. */
+    private val client: OkHttpClient = baseClient.newBuilder()
+        .addInterceptor(Interceptor { chain ->
+            chain.proceed(chain.request().newBuilder().header("User-Agent", BROWSER_USER_AGENT).build())
+        })
+        .build()
 
     /** Поиск по сайту (гостевой, без входа). titleonly=3 — искать в заголовках, а не в треклистах. */
     suspend fun search(query: String): List<ZRelease> =
@@ -147,7 +167,7 @@ class ZTorrentsClient(private val baseClient: OkHttpClient) {
 
     private suspend fun execute(request: Request): Response =
         suspendCancellableCoroutine { cont ->
-            val call = baseClient.newCall(request)
+            val call = client.newCall(request)
             cont.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {

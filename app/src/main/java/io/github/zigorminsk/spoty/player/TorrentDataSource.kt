@@ -1,18 +1,19 @@
 package io.github.zigorminsk.spoty.player
 
 import android.net.Uri
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
 import io.github.zigorminsk.spoty.data.remote.rutracker.TORRENT_URI_SCHEME
+import io.github.zigorminsk.spoty.data.remote.rutracker.parseTorrentUriParts
 import io.github.zigorminsk.spoty.data.torrent.TorrentEngine
 import java.io.File
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.io.RandomAccessFile
-import org.libtorrent4j.Priority
 import org.libtorrent4j.TorrentHandle
 import org.libtorrent4j.TorrentInfo
 
@@ -40,35 +41,45 @@ class TorrentDataSource(private val engine: TorrentEngine) : BaseDataSource(/* i
     override fun open(dataSpec: DataSpec): Long {
         val u = dataSpec.uri
         // torrent://<источник>/<topicId>/<fileIndex>: источник решает, где брать .torrent.
-        val sourceKey = u.host ?: throw IOException("bad torrent uri: $u")
-        val topicId = u.pathSegments.getOrNull(0)?.toLongOrNull() ?: throw IOException("bad torrent uri: $u")
-        val index = u.pathSegments.getOrNull(1)?.toIntOrNull() ?: throw IOException("bad torrent uri: $u")
+        val (sourceKey, topicId, index) = parseTorrentUriParts(u.host, u.pathSegments)
+            ?: throw IOException("bad torrent uri: $u")
         uri = u
         transferInitializing(dataSpec)
 
-        // Добавляет раздачу в сессию; .torrent берётся из кэша или скачивается с трекера.
-        val (ti, th) = engine.prepareBlocking(sourceKey, topicId)
-        if (index < 0 || index >= ti.numFiles()) throw IOException("bad file index: $u")
-        info = ti
-        handle = th
-        fileIndex = index
-        val fs = ti.files()
-        fileSize = fs.fileSize(index)
-        fileGlobalOffset = fs.fileOffset(index)
-        file = engine.savedFile(ti, index)
+        try {
+            // Добавляет раздачу в сессию; .torrent берётся из кэша или скачивается с трекера.
+            val (ti, th) = engine.prepareBlocking(sourceKey, topicId)
+            if (index < 0 || index >= ti.numFiles()) throw IOException("bad file index: $u")
+            info = ti
+            handle = th
+            fileIndex = index
+            val fs = ti.files()
+            fileSize = fs.fileSize(index)
+            fileGlobalOffset = fs.fileOffset(index)
+            file = engine.savedFile(ti, index)
 
-        if (dataSpec.position > fileSize) throw IOException("position out of range: $u")
-        position = dataSpec.position
-        bytesRemaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
-            dataSpec.length.coerceAtMost(fileSize - position)
-        } else {
-            fileSize - position
+            if (dataSpec.position > fileSize) throw IOException("position out of range: $u")
+            position = dataSpec.position
+            bytesRemaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                dataSpec.length.coerceAtMost(fileSize - position)
+            } else {
+                fileSize - position
+            }
+
+            // Включаем скачивание нужного файла (весь массив приоритетов, не один файл),
+            // выводим раздачу в начало очереди и просим куски с текущей позиции.
+            engine.activateFile(th, ti, index)
+            requestUrgentPieces(pieceFor(position))
+            requestTailPieces()
+        } catch (e: Exception) {
+            Log.w(TorrentEngine.TAG, "failed to open $u", e)
+            uri = null
+            info = null
+            handle = null
+            // ExoPlayer понимает только IOException: остальное стало бы «неожиданной» ошибкой.
+            if (e is IOException) throw e
+            throw IOException(e.message ?: "failed to open torrent stream", e)
         }
-
-        // Включаем скачивание нужного файла и просим первые куски в первую очередь.
-        th.filePriority(index, Priority.DEFAULT)
-        th.resume()
-        requestUrgentPieces(pieceFor(position))
 
         transferStarted(dataSpec)
         return bytesRemaining
@@ -122,6 +133,8 @@ class TorrentDataSource(private val engine: TorrentEngine) : BaseDataSource(/* i
         file = null
         info = null
         handle = null
+        position = 0L
+        bytesRemaining = 0L
         if (uri != null) {
             uri = null
             transferEnded()
@@ -156,19 +169,53 @@ class TorrentDataSource(private val engine: TorrentEngine) : BaseDataSource(/* i
         }
     }
 
+    /**
+     * Последние куски файла нужны некоторым контейнерам сразу (у M4A/MP4 индекс moov
+     * часто лежит в конце файла): просим и их, чтобы экстрактор не ждал весь файл.
+     */
+    private fun requestTailPieces() {
+        val th = handle ?: return
+        if (!th.isValid) return
+        val last = lastPieceOfFile()
+        runCatching {
+            var delay = 0
+            for (i in maxOf(pieceFor(0), last - URGENT_PIECES) .. last) {
+                th.setPieceDeadline(i, delay)
+                delay += 700
+            }
+        }
+    }
+
     private fun waitForPiece(piece: Int) {
         val th = handle ?: throw IOException("source is not open")
         if (th.isValid && th.havePiece(piece)) return
         requestUrgentPieces(piece)
         var waitedMs = 0L
+        var lastAnnounceMs = 0L
         while (true) {
             if (!th.isValid) throw IOException("torrent was removed")
             if (th.havePiece(piece)) return
             if (Thread.currentThread().isInterrupted) throw InterruptedIOException()
-            if (waitedMs >= PIECE_TIMEOUT_MS) throw IOException("timed out waiting for torrent data (no peers?)")
+            if (waitedMs >= PIECE_TIMEOUT_MS) {
+                // В ошибке — состояние раздачи: по ней видно, нет пиров вообще
+                // или пиры есть, но кусок просто не успели отдать.
+                val detail = runCatching {
+                    val st = th.status()
+                    "seeds=${st.numSeeds()}, peers=${st.numPeers()}, rate=${st.downloadPayloadRate()} B/s"
+                }.getOrDefault("status unavailable")
+                throw IOException("timed out waiting for torrent data (piece $piece, $detail)")
+            }
             sleep(PIECE_POLL_MS)
             waitedMs += PIECE_POLL_MS
             if (waitedMs % 5_000L == 0L) requestUrgentPieces(piece)
+            // Раздача могла добавиться давно и «заснуть»: периодически переанонсируемся.
+            if (waitedMs - lastAnnounceMs >= ANNOUNCE_INTERVAL_MS) {
+                lastAnnounceMs = waitedMs
+                runCatching {
+                    th.forceReannounce()
+                    th.forceDHTAnnounce()
+                }
+            }
         }
     }
 
@@ -184,7 +231,10 @@ class TorrentDataSource(private val engine: TorrentEngine) : BaseDataSource(/* i
     private companion object {
         const val URGENT_PIECES = 6
         const val PIECE_POLL_MS = 250L
-        const val PIECE_TIMEOUT_MS = 120_000L
+        // Холодная раздача может искать пиров минутами: пока ждём кусок, плеер
+        // показывает буферизацию, а не ошибку и не пропускает трек.
+        const val PIECE_TIMEOUT_MS = 180_000L
+        const val ANNOUNCE_INTERVAL_MS = 30_000L
         const val FLUSH_POLL_MS = 100L
         const val FLUSH_TIMEOUT_MS = 15_000L
     }
@@ -210,7 +260,15 @@ class RoutingDataSource(
         check(active == null) { "source is already open" }
         val source = if (dataSpec.uri.scheme == TORRENT_URI_SCHEME) torrent else default
         active = source
-        return source.open(dataSpec)
+        return try {
+            source.open(dataSpec)
+        } catch (e: Exception) {
+            // Не оставляем «активный» источник после неудачного открытия:
+            // иначе повторная попытка загрузки упиралась бы в check выше.
+            active = null
+            runCatching { source.close() }
+            throw e
+        }
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int =

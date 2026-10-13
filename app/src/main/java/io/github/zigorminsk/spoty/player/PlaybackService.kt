@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.SettableFuture
 import io.github.zigorminsk.spoty.MainActivity
 import io.github.zigorminsk.spoty.R
 import io.github.zigorminsk.spoty.SpotyApp
+import io.github.zigorminsk.spoty.data.remote.rutracker.torrentStreamUrlFromTrackId
 import io.github.zigorminsk.spoty.data.settings.PlaybackSnapshot
 import java.io.File
 import io.github.zigorminsk.spoty.util.NotificationChannels
@@ -316,8 +317,14 @@ class PlaybackService : MediaLibraryService() {
             mediaItems.map { item ->
                 val path = paths[item.mediaId]
                 val streamUrl = item.mediaMetadata.extras?.getString(MediaKeys.STREAM_URL)
+                // Торрентный адрес надёжнее всего собирать из самого mediaId
+                // («rutracker:<тема>:<файл>»): он переживает любую передачу через сессию,
+                // даже если URI и extras по дороге потерялись. Без URI ExoPlayer падает
+                // мгновенно, ещё до обращения к торрент-движку.
+                val torrentUrl = torrentStreamUrlFromTrackId(item.mediaId)
                 when {
                     item.localConfiguration != null -> item
+                    torrentUrl != null -> item.buildUpon().setUri(Uri.parse(torrentUrl)).build()
                     // URI вырезается при передаче через медиасессию — восстанавливаем из метаданных.
                     path != null -> item.buildUpon().setUri(Uri.fromFile(File(path))).build()
                     streamUrl != null -> item.buildUpon().setUri(Uri.parse(streamUrl)).build()

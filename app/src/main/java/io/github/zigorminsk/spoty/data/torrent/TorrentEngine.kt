@@ -1,8 +1,11 @@
 package io.github.zigorminsk.spoty.data.torrent
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -54,7 +57,14 @@ class TorrentEngine(private val context: Context) {
     private val lock = Any()
     private val addMutex = Mutex()
 
-    private val root: File get() = File(context.getExternalFilesDir(null), "torrents")
+    /** Разобранные .torrent в памяти: иначе каждый опрос статистики заново парсит файл с диска. */
+    private val infoCache = ConcurrentHashMap<String, TorrentInfo>()
+
+    // Внешнее хранилище может быть недоступно (getExternalFilesDir вернёт null) —
+    // тогда File(null, ...) превращается в относительный путь «torrents» в чужой папке,
+    // libtorrent не может создать файлы, и раздача молча не качается. Падаем на внутреннее.
+    private val root: File
+        get() = File(context.getExternalFilesDir(null) ?: context.filesDir, "torrents")
 
     /** Куда libtorrent пишет данные раздач. */
     val dataDir: File get() = File(root, "data")
@@ -65,13 +75,30 @@ class TorrentEngine(private val context: Context) {
 
     fun ensureStarted() {
         synchronized(lock) {
-            if (!session.isRunning) session.start()
+            if (!session.isRunning) {
+                session.start()
+                // Настройки по умолчанию libtorrent держат в активных загрузках всего
+                // 3 раздачи: каждая открытая тема добавляет торрент в сессию и не удаляет,
+                // поэтому после нескольких альбомов нужная раздача вставала в очередь
+                // авто-менеджера на паузу и не качалась вообще. Поднимаем лимиты.
+                runCatching {
+                    session.maxActiveDownloads(16)
+                    session.maxActiveSeeds(8)
+                    session.maxConnections(300)
+                }.onFailure { Log.w(TAG, "failed to apply session settings", it) }
+            }
         }
     }
 
     /** Метаданные раздачи из локального кэша .torrent-файлов. */
-    fun cachedInfo(source: String, topicId: Long): TorrentInfo? =
-        metaFile(source, topicId).takeIf { it.exists() }?.let { f -> runCatching { TorrentInfo(f) }.getOrNull() }
+    fun cachedInfo(source: String, topicId: Long): TorrentInfo? {
+        val key = "$source-$topicId"
+        infoCache[key]?.let { return it }
+        val parsed = metaFile(source, topicId).takeIf { it.exists() }
+            ?.let { f -> runCatching { TorrentInfo(f) }.getOrNull() }
+        if (parsed != null) infoCache[key] = parsed
+        return parsed
+    }
 
     /**
      * Добавляет раздачу в сессию (скачивая .torrent при необходимости) и возвращает метаданные.
@@ -85,6 +112,7 @@ class TorrentEngine(private val context: Context) {
             val parsed = TorrentInfo(bytes)
             metaDir.mkdirs()
             metaFile(source, topicId).writeBytes(bytes)
+            infoCache["$source-$topicId"] = parsed
             parsed
         }
         if (session.find(info.infoHash()) == null) {
@@ -98,8 +126,15 @@ class TorrentEngine(private val context: Context) {
                 TorrentFlags.SEQUENTIAL_DOWNLOAD,
             )
             // Торрент добавляется асинхронно — дожидаемся появления в сессии.
-            withTimeout(20_000L) {
-                while (session.find(info.infoHash()) == null) delay(100L)
+            // TimeoutCancellationException — это CancellationException: если дать ей
+            // вылететь наружу, загрузчик ExoPlayer и ViewModel примут её за отмену
+            // корутины и молча сдадутся без ошибки и без музыки. Нужен честный IOException.
+            try {
+                withTimeout(20_000L) {
+                    while (session.find(info.infoHash()) == null) delay(100L)
+                }
+            } catch (e: TimeoutCancellationException) {
+                throw IOException("timed out adding torrent to session", e)
             }
         }
         info
@@ -108,11 +143,46 @@ class TorrentEngine(private val context: Context) {
     /**
      * Блокирующая версия [prepare] для потока загрузки ExoPlayer.
      * Возвращает метаданные и handle раздачи в сессии.
+     * Любую ошибку приводит к [IOException] — только её ExoPlayer превращает
+     * в понятную ошибку воспроизведения, а не в «неожиданный» сбой плеера.
      */
-    fun prepareBlocking(source: String, topicId: Long): Pair<TorrentInfo, TorrentHandle> = runBlocking {
-        val info = prepare(source, topicId)
-        val handle = session.find(info.infoHash()) ?: throw IOException("torrent is not in session")
-        info to handle
+    fun prepareBlocking(source: String, topicId: Long): Pair<TorrentInfo, TorrentHandle> =
+        try {
+            runBlocking {
+                val info = prepare(source, topicId)
+                val handle = session.find(info.infoHash())
+                    ?: throw IOException("torrent is not in session")
+                info to handle
+            }
+        } catch (e: IOException) {
+            throw e
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw IOException("interrupted while preparing torrent", e)
+        } catch (e: Exception) {
+            throw IOException(e.message ?: "failed to prepare torrent", e)
+        }
+
+    /**
+     * Включает скачивание одного файла раздачи: ему — максимальный приоритет,
+     * остальным — «не качать», и выводит раздачу в начало очереди сессии.
+     * Ставится именно весь массив приоритетов: одиночный filePriority() на раздаче,
+     * которую libtorrent уже посчитал завершённой (все файлы были выключены),
+     * мог не пересчитать «нужные» куски, и торрент оставался без пиров и данных.
+     */
+    fun activateFile(handle: TorrentHandle, info: TorrentInfo, fileIndex: Int) {
+        if (!handle.isValid) return
+        val priorities = Priority.array(Priority.IGNORE, info.numFiles())
+        if (fileIndex in priorities.indices) priorities[fileIndex] = Priority.TOP_PRIORITY
+        runCatching {
+            handle.prioritizeFiles(priorities)
+            handle.queuePositionTop()
+            handle.resume()
+            // Сразу просим трекеры и DHT дать пиров, а не ждём планового анонса.
+            handle.forceReannounce()
+            handle.forceDHTAnnounce()
+            handle.forceLSDAnnounce()
+        }.onFailure { Log.w(TAG, "failed to activate torrent file $fileIndex", it) }
     }
 
     fun handle(source: String, topicId: Long): TorrentHandle? {
@@ -163,14 +233,23 @@ class TorrentEngine(private val context: Context) {
             synchronized(lock) {
                 if (session.isRunning) session.stop()
             }
+            infoCache.clear()
             root.deleteRecursively()
         }
     }
 
-    private companion object {
+    companion object {
+        const val TAG = "SpotyTorrent"
+
+        /**
+         * Только форматы, которые ExoPlayer/Media3 реально умеет разбирать и декодировать.
+         * APE, WavPack, WMA, DSF и AIFF раньше попадали в список треков, но плеер
+         * гарантированно падал на них с ошибкой «no extractor / unsupported» —
+         * такие раздачи честнее вообще не показывать как слушабельные.
+         */
         val AUDIO_EXTENSIONS = setOf(
             "mp3", "flac", "ogg", "oga", "opus", "m4a", "m4b", "aac",
-            "wav", "aif", "aiff", "ape", "wv", "mka", "wma", "dsf",
+            "wav", "mka",
         )
     }
 }

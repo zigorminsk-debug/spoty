@@ -35,6 +35,7 @@ import io.github.zigorminsk.spoty.data.remote.rutracker.torrentStreamUrl
 import io.github.zigorminsk.spoty.data.torrent.TorrentFileEntry
 import io.github.zigorminsk.spoty.data.torrent.TorrentStats
 import io.github.zigorminsk.spoty.di.AppContainer
+import io.github.zigorminsk.spoty.player.audioMimeTypeForExtension
 import io.github.zigorminsk.spoty.ui.LocalAppContainer
 import io.github.zigorminsk.spoty.ui.components.EmptyBox
 import io.github.zigorminsk.spoty.ui.components.ErrorBox
@@ -105,8 +106,12 @@ class RuTrackerTopicViewModel(
                         albumTitle = album ?: topicTitle.ifBlank { name },
                         streamUrl = torrentStreamUrl(RUTRACKER_SOURCE, topicId, file.index),
                         webUrl = "${container.settings.value.rutrackerMirror}/forum/viewtopic.php?t=$topicId",
+                        mimeType = audioMimeTypeForExtension(file.path.substringAfterLast('.', "")),
                     )
                 }
+                // Сохраняем треки раздачи в каталог: тогда медиасессия сможет
+                // восстановить их и по одному mediaId (лайки, история, Android Auto).
+                runCatching { container.catalogStore.saveTracks(tracks) }
                 _state.update { it.copy(loading = false, name = name, files = files, tracks = tracks) }
             } catch (e: CancellationException) {
                 throw e

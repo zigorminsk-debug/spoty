@@ -26,6 +26,32 @@ const val TORRENT_URI_SCHEME = "torrent"
 fun torrentStreamUrl(source: String, topicId: Long, fileIndex: Int): String =
     "$TORRENT_URI_SCHEME://$source/$topicId/$fileIndex"
 
+/** Разобранный torrent:// URI: источник, тема/релиз и номер файла в раздаче. */
+data class TorrentUriParts(val source: String, val topicId: Long, val fileIndex: Int)
+
+/** torrent://<источник>/<topicId>/<fileIndex> → части; null, если URI битый. */
+fun parseTorrentUriParts(host: String?, pathSegments: List<String>): TorrentUriParts? {
+    val source = host?.takeIf { it.isNotBlank() } ?: return null
+    val topicId = pathSegments.getOrNull(0)?.toLongOrNull() ?: return null
+    val fileIndex = pathSegments.getOrNull(1)?.toIntOrNull() ?: return null
+    if (fileIndex < 0) return null
+    return TorrentUriParts(source, topicId, fileIndex)
+}
+
+/**
+ * Идентификатор трека «источник:тема:файл» → torrent:// URI.
+ * Нужен, чтобы восстановить адрес потока только по mediaId: при передаче через
+ * медиасессию URI и extras могут потеряться, а mediaId сохраняется всегда.
+ */
+fun torrentStreamUrlFromTrackId(trackId: String): String? {
+    val parts = trackId.split(':')
+    if (parts.size != 3) return null
+    val source = parts[0].takeIf { it.isNotBlank() } ?: return null
+    val topicId = parts[1].toLongOrNull() ?: return null
+    val fileIndex = parts[2].toIntOrNull()?.takeIf { it >= 0 } ?: return null
+    return torrentStreamUrl(source, topicId, fileIndex)
+}
+
 /**
  * Адрес зеркала к каноническому виду «схема://хост»: «rutracker.org» → «https://rutracker.org»,
  * «http://rutracker.net/forum/» → «http://rutracker.net». Пустая строка остаётся пустой.
@@ -211,7 +237,9 @@ class RuTrackerClient(
     private fun Response.readSetCookies(): List<String> =
         headers("Set-Cookie")
             .map { it.substringBefore(';').trim() }
-            .filter { c -> '=' in c && !c.endsWith("=") && !c.endsWith("=deleted") }
+            // Пустое значение («name=») — не cookie, а сброс; значение, просто
+            // оканчивающееся на «=», при этом терять нельзя — сессию не найдём.
+            .filter { c -> '=' in c && c.substringAfter('=').isNotEmpty() && !c.endsWith("=deleted") }
 
     suspend fun login(login: String, password: String) {
         val url = forumUrl("login.php")

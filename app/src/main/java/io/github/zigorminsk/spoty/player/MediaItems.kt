@@ -22,6 +22,23 @@ object MediaKeys {
     const val OFFLINE = "spoty.offline"
 }
 
+/** MIME по расширению аудиофайла — подсказка экстрактору ExoPlayer. */
+fun audioMimeTypeForExtension(extension: String): String? = when (extension.lowercase()) {
+    "mp3" -> "audio/mpeg"
+    "flac" -> "audio/flac"
+    "ogg", "oga" -> "audio/ogg"
+    "opus" -> "audio/opus"
+    "m4a", "m4b" -> "audio/mp4"
+    "aac" -> "audio/aac"
+    "wav" -> "audio/x-wav"
+    "mka" -> "audio/x-matroska"
+    else -> null
+}
+
+/** MIME по расширению в конце URL (query/fragment отбрасываются). */
+fun audioMimeTypeForUrl(url: String): String? =
+    audioMimeTypeForExtension(url.substringBefore('?').substringBefore('#').substringAfterLast('.', ""))
+
 /** Трек → элемент очереди. Если файл скачан — играем локальную копию. */
 fun Track.toMediaItem(localPath: String? = null): MediaItem {
     val extras = Bundle().apply {
@@ -47,9 +64,15 @@ fun Track.toMediaItem(localPath: String? = null): MediaItem {
         .setExtras(extras)
         .build()
     val uri = if (localPath != null) Uri.fromFile(File(localPath)) else Uri.parse(streamUrl)
+    // У torrent://…/<номер файла> нет расширения, поэтому без MIME экстрактор
+    // выбирается только по сигнатуре потока; с подсказкой надёжнее.
+    val mime = mimeType
+        ?: localPath?.let { audioMimeTypeForExtension(it.substringAfterLast('.', "")) }
+        ?: audioMimeTypeForUrl(streamUrl)
     return MediaItem.Builder()
         .setMediaId(id)
         .setUri(uri)
+        .apply { if (mime != null) setMimeType(mime) }
         .setMediaMetadata(metadata)
         .build()
 }
@@ -74,5 +97,6 @@ fun MediaItem.toTrack(): Track {
         license = ex?.getString(MediaKeys.LICENSE),
         playCount = ex?.getLong(MediaKeys.PLAY_COUNT) ?: 0L,
         webUrl = ex?.getString(MediaKeys.WEB_URL),
+        mimeType = localConfiguration?.mimeType,
     )
 }

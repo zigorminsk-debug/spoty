@@ -113,10 +113,14 @@ fun TrackMenuSheet(controller: TrackMenuController, actions: TrackMenuActions) {
             )
             MenuItem(R.drawable.ic_thumb_down, stringResource(R.string.dislike_hint), { actions.onDislike(track); dismiss() })
             MenuItem(R.drawable.ic_playlist_add, stringResource(R.string.add_to_playlist), { actions.onAddToPlaylist(track); dismiss() })
-            if (actions.downloaded(track)) {
-                MenuItem(R.drawable.ic_delete, stringResource(R.string.remove_download), { actions.onRemoveDownload(track); dismiss() })
-            } else {
-                MenuItem(R.drawable.ic_download, stringResource(R.string.download), { actions.onDownload(track); dismiss() })
+            // Торрент-треки качает сам движок при проигрывании, HTTP-загрузчик их не берёт —
+            // не показываем пункт, который ничего бы не скачал.
+            if (!track.streamUrl.startsWith("torrent://")) {
+                if (actions.downloaded(track)) {
+                    MenuItem(R.drawable.ic_delete, stringResource(R.string.remove_download), { actions.onRemoveDownload(track); dismiss() })
+                } else {
+                    MenuItem(R.drawable.ic_download, stringResource(R.string.download), { actions.onDownload(track); dismiss() })
+                }
             }
             MenuItem(R.drawable.ic_waves, stringResource(R.string.wave_by_track), { actions.onStartWave(track); dismiss() })
             if (track.artistId != null) {

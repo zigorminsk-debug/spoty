@@ -40,6 +40,8 @@ data class Track(
     val webUrl: String? = null,
     /** Аватар исполнителя (если источник отдал его вместе с треком); в БД треков не хранится. */
     val artistImageUrl: String? = null,
+    /** MIME аудиофайла, если известен (у torrent:// в URI нет расширения); в БД не хранится. */
+    val mimeType: String? = null,
 )
 
 @Serializable

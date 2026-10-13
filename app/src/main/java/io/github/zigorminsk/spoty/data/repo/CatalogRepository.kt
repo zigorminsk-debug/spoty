@@ -70,6 +70,11 @@ class CatalogRepository(
 
     fun clearCache() = cache.clear()
 
+    /** Отпечаток настроек, влияющих на выдачу: без него кэш переживал смену источников. */
+    private fun cacheScope(): String = settings.value.let { s ->
+        s.enabledSources.sorted().joinToString(",") + "|" + s.openLicenseOnly
+    }
+
     private fun filterTracks(items: List<Track>): List<Track> =
         if (settings.value.openLicenseOnly) items.filter { it.isOpenLicensed() } else items
 
@@ -98,7 +103,7 @@ class CatalogRepository(
     suspend fun search(query: String, limitPerSource: Int = 20): SearchResults = coroutineScope {
         val q = query.trim()
         if (q.isEmpty()) return@coroutineScope SearchResults()
-        cache.get<SearchResults>("search:$q")?.let { return@coroutineScope it }
+        cache.get<SearchResults>("search:$q:${cacheScope()}")?.let { return@coroutineScope it }
         val active = activeSources()
         val tracksJobs = active.map { s -> async { attempt { s.searchTracks(q, limitPerSource) } } }
         val albumsJobs = active.map { s -> async { attempt { s.searchAlbums(q, limitPerSource) } } }
@@ -122,12 +127,12 @@ class CatalogRepository(
 
         persist(tracks, albums, artists)
         val result = SearchResults(tracks, albums, artists, failed)
-        if (failed.isEmpty()) cache.put("search:$q", result)
+        if (failed.isEmpty()) cache.put("search:$q:${cacheScope()}", result)
         result
     }
 
     suspend fun trendingTracks(genre: Genre? = null, limit: Int = 30): List<Track> {
-        val key = "trending:${genre?.id}:$limit"
+        val key = "trending:${genre?.id}:$limit:${cacheScope()}"
         cache.get<List<Track>>(key)?.let { return it }
         val result = coroutineScope {
             activeSources().map { s -> async { attempt { s.trendingTracks(genre, limit) } } }.map { it.await() }
@@ -142,7 +147,7 @@ class CatalogRepository(
     }
 
     suspend fun popularAlbums(genre: Genre? = null, limit: Int = 20): List<Album> {
-        val key = "albums:${genre?.id}:$limit"
+        val key = "albums:${genre?.id}:$limit:${cacheScope()}"
         cache.get<List<Album>>(key)?.let { return it }
         val result = coroutineScope {
             activeSources().map { s -> async { attempt { s.popularAlbums(genre, limit) } } }.map { it.await() }
@@ -157,7 +162,7 @@ class CatalogRepository(
     }
 
     suspend fun popularArtists(limit: Int = 20): List<Artist> {
-        val key = "artists:$limit"
+        val key = "artists:$limit:${cacheScope()}"
         cache.get<List<Artist>>(key)?.let { return it }
         val result = coroutineScope {
             activeSources().map { s -> async { attempt { s.popularArtists(limit) } } }.map { it.await() }
