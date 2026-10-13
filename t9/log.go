@@ -14,6 +14,9 @@ var (
 	logMu  sync.Mutex
 	logF   *os.File
 	logDir string
+
+	// debugOn — дублировать лог в консоль (режим --debug).
+	debugOn bool
 )
 
 func initLog() {

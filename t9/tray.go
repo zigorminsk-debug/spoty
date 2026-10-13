@@ -124,6 +124,8 @@ func (a *App) addTrayIcon() {
 	ok, _, err := procShellNotifyIconW.Call(NIM_ADD, uintptr(unsafe.Pointer(n)))
 	if ok == 0 {
 		logf("Shell_NotifyIconW(NIM_ADD): %v", err)
+	} else {
+		logf("трей-иконка добавлена (T9 %s)", map[bool]string{true: "вкл", false: "выкл"}[on])
 	}
 }
 

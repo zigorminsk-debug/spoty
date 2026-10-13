@@ -59,11 +59,24 @@ func main() {
 	uninstallFlag := flag.Bool("uninstall", false, "отключить автозапуск и выйти")
 	reexecFlag := flag.Bool("reexec", false, "внутренний флаг: процесс только что перезапущен")
 	versionFlag := flag.Bool("version", false, "напечатать версию и выйти")
+	debugFlag := flag.Bool("debug", false, "запустить с консолью и подробным логом (для диагностики)")
 	flag.Parse()
 
-	if *versionFlag {
-		fmt.Println(appTitle, version)
-		return
+	// Паника в GUI-приложении без консоли иначе незаметна — показываем её.
+	defer func() {
+		if r := recover(); r != nil {
+			msgBox(appTitle,
+				"Внутренняя ошибка (panic): "+fmt.Sprint(r)+"\n\n"+
+					"Журнал: %LOCALAPPDATA%\\SpotyT9\\spoty-t9.log")
+		}
+	}()
+
+	if *debugFlag {
+		debugOn = true
+		if _, _, err := procAllocConsole.Call(); err == nil {
+			fmt.Println(appTitle, version, "— debug-режим: вывод в этой консоли, "+
+				"программа работает до закрытия трея.")
+		}
 	}
 
 	initLog()
@@ -139,15 +152,17 @@ func NewApp() *App {
 }
 
 func (a *App) run() {
-	logf("запуск v%s (hotkey=%s, lang=%s)", version, a.cfg.HotKey, a.cfg.Language)
+	logf("запуск v%s (hotkey=%s, lang=%s, словари ru=%d en=%d)",
+		version, a.cfg.HotKey, a.cfg.Language, len(a.engine.ru.words), len(a.engine.en.words))
 	a.initWindow()
+	logf("окно создано")
 	a.addTrayIcon()
 	a.registerHotKey()
 	if err := a.installHook(); err != nil {
 		logf("SetWindowsHookExW: %v", err)
 		msgBox(appTitle, "Не удалось установить хук клавиатуры: "+err.Error())
 	} else {
-		logf("хук клавиатуры установлен")
+		logf("хук клавиатуры установлен, T9 готов к работе")
 	}
 	go a.gapTicker()
 
@@ -327,6 +342,8 @@ func (a *App) registerHotKey() {
 	ok, _, err := procRegisterHotKey.Call(a.winHWND, 1, uintptr(mods), uintptr(vk))
 	if ok == 0 {
 		logf("RegisterHotKey(%s): %v", a.cfg.HotKey, err)
+	} else {
+		logf("горячая клавиша %s зарегистрирована", a.cfg.HotKey)
 	}
 }
 

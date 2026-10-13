@@ -114,6 +114,9 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 		}
 		a.buf = append(a.buf, ch)
 		a.lastKeyAt = now
+		if debugOn {
+			logf("буква %q, буфер=%q", ch, string(a.buf))
+		}
 		return false
 	}
 
@@ -125,6 +128,9 @@ func (a *App) handleKeyEvent(vk, scan, flags uint32) bool {
 // finalizeSeparator завершает слово разделителем. Если замена произошла —
 // клавиша поглатывается (слово и разделитель отправляются сами).
 func (a *App) finalizeSeparator(sep rune) bool {
+	if debugOn {
+		logf("разделитель %q, буфер=%q", string(sep), string(a.buf))
+	}
 	if len(a.buf) >= a.minLen() && a.finishBurst(sep) {
 		a.buf = nil
 		return true
@@ -142,8 +148,17 @@ func (a *App) finishBurst(sep rune) bool {
 	}
 	typed := strings.ToLower(string(a.buf))
 	pred := a.engine.Predict(a.lang, typed)
-	if pred == "" || pred == typed {
-		return false // нет кандидата или набранное уже целое слово
+	if pred == "" {
+		if debugOn {
+			logf("T9: %q — нет кандидата (lang=%s)", typed, a.lang)
+		}
+		return false
+	}
+	if pred == typed {
+		if debugOn {
+			logf("T9: %q — уже целое слово, без замены", typed)
+		}
+		return false
 	}
 	out := ApplyCase(string(a.buf), pred)
 	if out == string(a.buf) {
