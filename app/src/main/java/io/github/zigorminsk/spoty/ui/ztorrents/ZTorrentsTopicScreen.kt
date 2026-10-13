@@ -167,6 +167,14 @@ fun ZTorrentsTopicScreen(
                             progress = { stats.progress.coerceIn(0f, 1f) },
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                         )
+                        if (stats.seeds == 0 && stats.totalDoneBytes == 0L) {
+                            Text(
+                                stringResource(R.string.torrent_no_seeds),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                 }
                 Button(

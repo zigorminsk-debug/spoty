@@ -192,6 +192,8 @@
     <string name="rutracker_web_login">Sign in via built-in browser</string>
     <string name="rutracker_web_login_title">Sign in to RuTracker</string>
     <string name="rutracker_web_login_hint">The real tracker sign-in page opens — its bot protection treats it as a normal browser. After signing in, the session is saved in the app and the window closes on its own.</string>
+    <string name="rutracker_search_blocked">The tracker rejected the request (bot protection). Sign in via the built-in browser in Settings and retry</string>
+    <string name="torrent_no_seeds">No seeds right now: playback will start once a seeder appears</string>
 
     <string name="ztorrents">Z-Torrents</string>
     <string name="ztorrents_search_on">Search on Z-Torrents</string>

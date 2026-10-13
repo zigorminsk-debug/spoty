@@ -103,7 +103,9 @@ class PlayerController(
 
         override fun onPlayerError(error: PlaybackException) {
             val title = controller?.currentMediaItem?.mediaMetadata?.title?.toString().orEmpty()
-            _errors.tryEmit(title)
+            // Причина (например, «no peers» у торрента) важна не меньше названия трека.
+            val reason = error.cause?.message ?: error.message ?: error.errorCodeName
+            _errors.tryEmit(listOfNotNull(title.takeIf { it.isNotBlank() }, reason).joinToString(" — "))
         }
     }
 

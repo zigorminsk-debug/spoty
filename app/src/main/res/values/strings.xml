@@ -211,6 +211,8 @@
     <string name="rutracker_web_login">Войти через встроенный браузер</string>
     <string name="rutracker_web_login_title">Вход в RuTracker</string>
     <string name="rutracker_web_login_hint">Откроется настоящая страница входа трекера — её защита от ботов пропускает как обычный браузер. После входа сессия сохранится в приложении, и окно закроется само.</string>
+    <string name="rutracker_search_blocked">Трекер отклонил запрос (защита от ботов). Войдите через встроенный браузер в настройках и повторите поиск</string>
+    <string name="torrent_no_seeds">В торренте сейчас нет сидов: воспроизведение начнётся, когда появится раздающий</string>
 
     <!-- Z-Torrents -->
     <string name="ztorrents">Z-Torrents</string>

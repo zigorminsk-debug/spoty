@@ -53,7 +53,7 @@ class RuTrackerSearchViewModel(
     initialQuery: String,
 ) : ViewModel() {
 
-    enum class ErrorKind { AUTH, CAPTCHA, NETWORK }
+    enum class ErrorKind { AUTH, CAPTCHA, BLOCKED, NETWORK }
 
     data class State(
         val query: String = "",
@@ -84,6 +84,8 @@ class RuTrackerSearchViewModel(
                 throw e
             } catch (e: RuTrackerError.Captcha) {
                 _state.update { it.copy(loading = false, error = ErrorKind.CAPTCHA) }
+            } catch (e: RuTrackerError.Blocked) {
+                _state.update { it.copy(loading = false, error = ErrorKind.BLOCKED) }
             } catch (e: RuTrackerError) {
                 _state.update { it.copy(loading = false, error = ErrorKind.AUTH) }
             } catch (e: Exception) {
@@ -160,6 +162,8 @@ fun RuTrackerSearchScreen(initialQuery: String, navController: NavHostController
                 ErrorBox(stringResource(R.string.rutracker_login_failed), onRetry = { viewModel.submit() })
             state.error == RuTrackerSearchViewModel.ErrorKind.CAPTCHA ->
                 ErrorBox(stringResource(R.string.rutracker_captcha), onRetry = { viewModel.submit() })
+            state.error == RuTrackerSearchViewModel.ErrorKind.BLOCKED ->
+                ErrorBox(stringResource(R.string.rutracker_search_blocked), onRetry = { viewModel.submit() })
             state.error == RuTrackerSearchViewModel.ErrorKind.NETWORK ->
                 ErrorBox(stringResource(R.string.network_error), onRetry = { viewModel.submit() })
             !state.searched -> EmptyBox(stringResource(R.string.rutracker_hint), icon = R.drawable.ic_travel_explore)

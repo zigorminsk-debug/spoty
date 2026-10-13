@@ -117,11 +117,11 @@ object ZTorrentsParser {
  */
 class ZTorrentsClient(private val baseClient: OkHttpClient) {
 
-    /** Поиск по сайту (гостевой, без входа). */
+    /** Поиск по сайту (гостевой, без входа). titleonly=3 — искать в заголовках, а не в треклистах. */
     suspend fun search(query: String): List<ZRelease> =
         ZTorrentsParser.parseSearch(
             body(
-                "$ZTORRENTS_BASE/index.php?do=search&subaction=search&story=" +
+                "$ZTORRENTS_BASE/index.php?do=search&subaction=search&titleonly=3&story=" +
                     URLEncoder.encode(query, "UTF-8"),
             ),
         )
