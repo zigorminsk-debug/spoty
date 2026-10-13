@@ -55,7 +55,8 @@ class ZTorrentsSearchViewModel(
         val query: String = "",
         val loading: Boolean = false,
         val searched: Boolean = false,
-        val error: Boolean = false,
+        /** Текст настоящей ошибки: общая заглушка «не удалось загрузить» причину прятала. */
+        val errorMessage: String? = null,
         val results: List<ZRelease> = emptyList(),
     )
 
@@ -72,16 +73,19 @@ class ZTorrentsSearchViewModel(
         val query = _state.value.query.trim()
         if (query.isEmpty()) return
         viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = false) }
+            _state.update { it.copy(loading = true, errorMessage = null) }
             try {
                 val results = container.ztorrents.search(query)
                 _state.update { it.copy(loading = false, searched = true, results = results) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // На экране одна общая «Не удалось загрузить» — причина только в логе.
+                // Причина — в лог и на экран под общей фразой: по ней видно,
+                // это сеть или ответ сервера, а не просто «не удалось».
                 Log.w(ZTORRENTS_TAG, "search failed: $query", e)
-                _state.update { it.copy(loading = false, error = true) }
+                _state.update {
+                    it.copy(loading = false, errorMessage = e.message ?: e.javaClass.simpleName)
+                }
             }
         }
     }
@@ -124,7 +128,10 @@ fun ZTorrentsSearchScreen(initialQuery: String, navController: NavHostController
 
         when {
             state.loading -> LoadingBox()
-            state.error -> ErrorBox(stringResource(R.string.network_error), onRetry = { viewModel.submit() })
+            state.errorMessage != null -> ErrorBox(
+                "${stringResource(R.string.network_error)}\n\n${state.errorMessage}",
+                onRetry = { viewModel.submit() },
+            )
             !state.searched -> EmptyBox(stringResource(R.string.ztorrents_hint), icon = R.drawable.ic_explore)
             state.results.isEmpty() -> EmptyBox(stringResource(R.string.nothing_found), icon = R.drawable.ic_search)
             else -> LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {

@@ -64,7 +64,8 @@ class ZTorrentsTopicViewModel(
 
     data class State(
         val loading: Boolean = true,
-        val error: Boolean = false,
+        /** Текст настоящей ошибки: общая заглушка «не удалось загрузить» причину прятала. */
+        val errorMessage: String? = null,
         val name: String = "",
         val files: List<TorrentFileEntry> = emptyList(),
         val tracks: List<Track> = emptyList(),
@@ -89,7 +90,7 @@ class ZTorrentsTopicViewModel(
 
     fun load() {
         viewModelScope.launch {
-            _state.update { it.copy(loading = true, error = false) }
+            _state.update { it.copy(loading = true, errorMessage = null) }
             try {
                 val engine = container.torrentEngine
                 val info = withContext(Dispatchers.IO) { engine.prepare(ZTORRENTS_SOURCE, releaseId) }
@@ -117,9 +118,12 @@ class ZTorrentsTopicViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // На экране одна общая «Не удалось загрузить» — причина только в логе.
+                // Причина — в лог и на экран под общей фразой: по ней видно,
+                // это сеть, ответ сервера или движок, а не просто «не удалось».
                 Log.w(ZTORRENTS_TAG, "release $releaseId failed to load", e)
-                _state.update { it.copy(loading = false, error = true) }
+                _state.update {
+                    it.copy(loading = false, errorMessage = e.message ?: e.javaClass.simpleName)
+                }
             }
         }
     }
@@ -156,7 +160,10 @@ fun ZTorrentsTopicScreen(
 
         when {
             state.loading -> LoadingBox()
-            state.error -> ErrorBox(stringResource(R.string.network_error), onRetry = { viewModel.load() })
+            state.errorMessage != null -> ErrorBox(
+                "${stringResource(R.string.network_error)}\n\n${state.errorMessage}",
+                onRetry = { viewModel.load() },
+            )
             state.tracks.isEmpty() -> EmptyBox(stringResource(R.string.rutracker_no_audio), icon = R.drawable.ic_music_note)
             else -> {
                 val stats = state.stats

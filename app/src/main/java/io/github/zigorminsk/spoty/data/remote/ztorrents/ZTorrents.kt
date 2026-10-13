@@ -1,5 +1,6 @@
 package io.github.zigorminsk.spoty.data.remote.ztorrents
 
+import android.util.Log
 import io.github.zigorminsk.spoty.data.remote.rutracker.BROWSER_USER_AGENT
 import io.github.zigorminsk.spoty.data.remote.rutracker.HTML_ACCEPT
 import io.github.zigorminsk.spoty.data.remote.rutracker.RU_LANG
@@ -129,8 +130,7 @@ object ZTorrentsParser {
             title = (doc.selectFirst("h1")?.text()?.trim() ?: doc.title())
                 .removeSuffix(" скачать через торрент")
                 .trim(),
-            torrentUrl = doc.selectFirst("a[href$=.torrent]")?.attr("href")?.takeIf { it.isNotBlank() }
-                ?.let { resolveZtorrentsUrl(it) },
+            torrentUrl = torrentHref(doc)?.let { resolveZtorrentsUrl(it) },
             coverUrl = doc.selectFirst("img[src*=/uploads/posts/]")?.attr("src")?.takeIf { it.isNotBlank() }
                 ?.let { resolveZtorrentsUrl(it) },
             infoText = body
@@ -139,6 +139,16 @@ object ZTorrentsParser {
                 .trim(),
         )
     }
+
+    /**
+     * Ссылка на .torrent со страницы релиза. Основной селектор чувствителен к регистру
+     * расширения, поэтому следом — ручной проход по всем ссылкам страницы.
+     */
+    private fun torrentHref(doc: org.jsoup.nodes.Document): String? =
+        doc.selectFirst("a[href$=.torrent]")?.attr("href")?.takeIf { it.isNotBlank() }
+            ?: doc.select("a[href]").firstOrNull { a ->
+                a.attr("href").substringBefore('?').lowercase().endsWith(".torrent")
+            }?.attr("href")?.takeIf { it.isNotBlank() }
 
     /** Название файла → название трека; логика общая с RuTracker. */
     fun cleanFileTitle(name: String): String = RuTrackerParser.cleanFileTitle(name)
@@ -197,9 +207,19 @@ class ZTorrentsClient(baseClient: OkHttpClient) {
 
     /** .torrent релиза: сперва читаем страницу, затем сам файл прямой ссылкой. */
     suspend fun torrentBytes(releaseId: Long): ByteArray {
-        val torrentUrl = details(releaseId).torrentUrl
-            ?: throw IOException("z-torrents: release $releaseId has no torrent file")
-        return bytes(torrentUrl)
+        val rel = details(releaseId)
+        val torrentUrl = rel.torrentUrl ?: run {
+            // Страница открылась, но ссылки на файл нет. В лог — её заголовок:
+            // по нему видно, сайт отдал заглушку вместо страницы релиза.
+            Log.w(ZTORRENTS_TAG, "release $releaseId has no .torrent link, page title: ${rel.title}")
+            throw IOException("z-torrents: release $releaseId has no torrent file")
+        }
+        val data = bytes(torrentUrl)
+        // С кодом 200 сервер мог отдать HTML-заглушку вместо файла; торрент — bencode-словарь на 'd'.
+        if (data.firstOrNull() != 'd'.code.toByte()) {
+            throw IOException("z-torrents: not a torrent file (${data.size} bytes from $torrentUrl)")
+        }
+        return data
     }
 
     private suspend fun body(url: String): String = bytes(url).toString(Charsets.UTF_8)
