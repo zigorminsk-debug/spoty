@@ -46,7 +46,7 @@ func setRunKey(path string) error {
 		uintptr(unsafe.Pointer(name)),
 		0,
 		regSZ,
-		uintptr(unsafe.Pointer(val)),
+		uintptr(unsafe.Pointer(&val[0])),
 		uintptr(len(val)*2),
 	)
 	if r != 0 {
