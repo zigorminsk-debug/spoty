@@ -46,7 +46,7 @@ func llHookProc(code int32, wParam, lParam uintptr) uintptr {
 // LLKHF_EXTENDED/INJECTED/ALTDOWN/UP.
 func keyDown(vk uint32) bool {
 	v, _, _ := procGetKeyState.Call(uintptr(int32(vk)))
-	return int16(v)&0x8000 != 0
+	return uint16(v)&0x8000 != 0
 }
 
 // handleKeyEvent обрабатывает одно нажатие клавиши (только «вниз»).
