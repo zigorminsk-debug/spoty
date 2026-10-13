@@ -48,6 +48,7 @@ jobs:
 
       # Реальный запуск приложения (без self-install): трей, хоткей, хук.
       # Ловит паники при старте, которых не видно в --version.
+      # При сбое пишет ::error-аннотацию с состоянием процесса и логом.
       - name: Smoke test (запуск с треем и хуком)
         working-directory: t9
         shell: pwsh
@@ -55,21 +56,29 @@ jobs:
           $ErrorActionPreference = "Stop"
           $log = Join-Path $env:LOCALAPPDATA "SpotyT9\spoty-t9.log"
           Remove-Item $log -ErrorAction SilentlyContinue
-          $p = Start-Process -FilePath ".\dist\spoty-t9.exe" -ArgumentList "--reexec" -PassThru
-          try {
-            Start-Sleep -Seconds 6
-            if ($p.HasExited) {
-              if (Test-Path $log) { Get-Content $log | ForEach-Object { Write-Host "LOG: $_" } }
-              throw "процесс завершился досрочно (код $($p.ExitCode)) — паника при старте"
+          $p = $null
+          function Fail([string]$msg) {
+            $state = "p=null"
+            if ($null -ne $p) { $state = "pid=$($p.Id) exited=$($p.HasExited) code=$($p.ExitCode)" }
+            $tail = ""
+            if (Test-Path $log) {
+              $tail = " | ЛОГ: " + ((Get-Content $log -Raw) -replace "`r?`n", " | ")
             }
-            if (-not (Test-Path $log)) { throw "процесс жив, но лог не создан: $log" }
+            Write-Host "::error file=.github/workflows/t9.yml,line=27::SMOKE-FAIL $msg | $state$tail"
+            exit 1
+          }
+          try {
+            $p = Start-Process -FilePath ".\dist\spoty-t9.exe" -ArgumentList "--reexec" -PassThru
+            Start-Sleep -Seconds 6
+            if ($p.HasExited) { Fail "процесс завершился досрочно" }
+            if (-not (Test-Path $log)) { Fail "лог не создан" }
             $content = Get-Content $log -Raw
             Write-Host $content
-            if ($content -notmatch "хук клавиатуры установлен") { throw "в логе нет установки хука" }
-            if ($content -notmatch "трей-иконка добавлена") { throw "в логе нет добавления трей-иконки" }
+            if ($content -notmatch "хук клавиатуры установлен") { Fail "нет установки хука" }
+            if ($content -notmatch "трей-иконка добавлена") { Fail "нет трей-иконки" }
             Write-Host "SMOKE OK: трей и хук работают"
           } finally {
-            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            if ($null -ne $p) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           }
 
       - name: Upload artifact
