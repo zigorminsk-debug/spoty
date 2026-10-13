@@ -20,7 +20,7 @@ func regOpenRunKey(sam uint32) (uintptr, error) {
 		hkeyCurrentUser,
 		uintptr(unsafe.Pointer(sub)),
 		0,
-		sam,
+		uintptr(sam),
 		uintptr(unsafe.Pointer(&h)),
 	)
 	if r != 0 {

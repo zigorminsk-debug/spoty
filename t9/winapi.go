@@ -45,6 +45,7 @@ var (
 	procGetCursorPos             = user32.NewProc("GetCursorPos")
 	procLoadCursorW              = user32.NewProc("LoadCursorW")
 	procGetModuleHandleW         = kernel32.NewProc("GetModuleHandleW")
+	procCreateMutexW             = kernel32.NewProc("CreateMutexW")
 
 	procRegOpenKeyExW    = advapi.NewProc("RegOpenKeyExW")
 	procRegSetValueExW   = advapi.NewProc("RegSetValueExW")

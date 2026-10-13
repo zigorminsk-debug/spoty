@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -53,7 +52,7 @@ type App struct {
 // app — глобальный экземпляр (доступ из wndProc/hook).
 var app *App
 
-var instanceMutex syscall.Handle
+var instanceMutex uintptr
 
 func main() {
 	_ = flag.Bool("install", false, "скопировать в %LOCALAPPDATA% и включить автозапуск")
@@ -81,7 +80,8 @@ func main() {
 	// копируем себя в LOCALAPPDATA, включаем автозапуск и перезапускаемся.
 	final := *reexecFlag
 	if cur, err := os.Executable(); err == nil {
-		final = final || filepath.Equal(filepath.Dir(cur), installDir)
+		// Сравнение с учётом регистра (Windows-пути case-insensitive).
+		final = final || strings.EqualFold(filepath.Clean(filepath.Dir(cur)), filepath.Clean(installDir))
 		if !final {
 			if err := selfInstall(cur, installDir, installExe); err != nil {
 				msgBox(appTitle, "Не удалось установить: "+err.Error())
@@ -322,7 +322,7 @@ func parseHotKey(s string) (mods, vk uint32) {
 
 func (a *App) registerHotKey() {
 	mods, vk := parseHotKey(a.cfg.HotKey)
-	ok, _, err := procRegisterHotKey.Call(a.winHWND, 1, mods, vk)
+	ok, _, err := procRegisterHotKey.Call(a.winHWND, 1, uintptr(mods), uintptr(vk))
 	if ok == 0 {
 		logf("RegisterHotKey(%s): %v", a.cfg.HotKey, err)
 	}
@@ -370,17 +370,20 @@ func selfInstall(cur, installDir, installExe string) (retErr error) {
 	return nil
 }
 
+// errorAlreadyExists — ERROR_ALREADY_EXISTS (183): именованный объект уже есть.
+const errorAlreadyExists = syscall.Errno(183)
+
 func acquireInstanceMutexRetry(timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
+	name := toUTF16(mutexName)
 	for {
-		h, err := syscall.CreateMutexW(nil, false, toUTF16(mutexName))
-		if h != 0 {
-			instanceMutex = h
-			if err == nil || !errors.Is(err, syscall.ERROR_ALREADY_EXISTS) {
-				return true
-			}
-		} else {
+		h, _, err := procCreateMutexW.Call(0, 0, uintptr(unsafe.Pointer(name)))
+		if h == 0 {
 			return true // не критично — работаем дальше
+		}
+		instanceMutex = h
+		if err == nil || err != errorAlreadyExists {
+			return true
 		}
 		if time.Now().After(deadline) {
 			return false
