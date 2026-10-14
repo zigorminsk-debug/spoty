@@ -93,7 +93,10 @@ jobs:
           VERSION_NAME=$(grep -m1 -oP 'versionName="\K[^"]+' app/build/outputs/apk/release/output-metadata.json || true)
           [ -n "$VERSION_NAME" ] || VERSION_NAME=$(python3 -c "import json;print(json.load(open('app/build/outputs/apk/release/output-metadata.json'))['elements'][0]['versionName'])")
           SHORT_SHA="${GITHUB_SHA::7}"
-          APK="Spoty-${VERSION_NAME}-${SHORT_SHA}.apk"
+          # Имя файла: math-<номер сборки>.apk. Номер сборки — номер запуска CI
+          # (GITHUB_RUN_NUMBER), тот же, что уже входит в versionName (1.0.<номер>).
+          [ -n "${GITHUB_RUN_NUMBER:-}" ] || GITHUB_RUN_NUMBER=0
+          APK="math-${GITHUB_RUN_NUMBER}.apk"
           cp "$APK_SRC" "$APK"
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee sign.txt
